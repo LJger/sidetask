@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="theme-color" content="#285b46">
+  <title>侧记 · 任务安排</title>
+  <link rel="icon" href="../assets/icon.png">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="themes.css">
+  <link rel="stylesheet" href="workspace.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body data-runtime="tauri" data-expanded="true" data-surface-expanded="true" data-phase="expanded" data-dock="right">
+  <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <mask id="logo-cutouts" maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32"><rect width="32" height="32" fill="white" stroke="none"/><path d="m10.1 13.5 2.7 2.9 5-5.1" fill="none" stroke="black" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M10.1 20.6h8.4m-8.4 2.4h5.6" stroke="black" stroke-width="1.25" stroke-linecap="round"/></mask>
+      <symbol id="i-logo" viewBox="0 0 32 32"><rect x="7.2" y="6.1" width="17" height="20" rx="2.8" fill="currentColor" stroke="none" mask="url(#logo-cutouts)"/><path d="M20.5 5.3h4.6V16l-2.3-1.6-2.3 1.6Z" fill="currentColor" fill-opacity=".6" stroke="none"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4m8-4v4M4 11h16M8 15h2m4 0h2m-8 3h2"/></symbol>
+      <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4c5-4 9 4 14 0v10c-5 4-9-4-14 0"/></symbol>
+      <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+      <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h6m6 0h4M4 17h2m6 0h8"/><circle cx="13" cy="7" r="3"/><circle cx="9" cy="17" r="3"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+      <symbol id="i-more" viewBox="0 0 24 24"><g fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></g></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="m14.5 4.5 5 5M4 20l5-1L20 8a2 2 0 0 0-5-5L4 14Z"/><path d="m4 14 5 5"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m-5 5 5-5 5 5M4 16v4h16v-4"/></symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 8V6a2 2 0 0 1 2-2h4l2 3h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2V8Z"/><path d="M3.5 9h17"/></symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24"><path d="m8 3 8 0-1 7 4 4H5l4-4-1-7Zm4 11v7"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
+      <symbol id="i-disk" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 14h18M7 17h.01M10 17h.01"/></symbol>
+      <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 5 4 10l5 5M4 10h9a6 6 0 0 1 0 12"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6m4-6v6"/></symbol>
+      <symbol id="i-note" viewBox="0 0 24 24"><path d="M14 3H5v18h14V8l-5-5Zm0 0v5h5M8 12h8m-8 4h5"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 3h8l10 10-8 8L3 11Z"/><circle cx="7.5" cy="7.5" r="1"/></symbol><symbol id="i-repeat" viewBox="0 0 24 24"><path d="m16 3 4 4-4 4M4 11V9a2 2 0 0 1 2-2h14M8 21l-4-4 4-4m12 0v2a2 2 0 0 1-2 2H4"/></symbol><symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol><symbol id="i-list" viewBox="0 0 24 24"><path d="m3 6 1 1 2-3m3 2h12M3 12h3m3 0h12M3 18h3m3 0h12"/></symbol><symbol id="i-expand" viewBox="0 0 24 24"><path d="M14 3h7v7m0-7L12 12M9 4H4v16h16v-5"/></symbol><symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></symbol></defs>
+  </svg>
+  <main class="shell" id="shell" aria-label="侧记任务管理">
+    <button class="edge-handle" id="edge-handle" aria-label="收起侧记" aria-expanded="true" aria-controls="panel" title="收起侧记">
+      <span class="handle-count" id="handle-count">0</span>
+      <svg class="icon handle-chevron" aria-hidden="true"><use href="#i-right"/></svg>
+    </button>
+    <div class="drawer" id="drawer">
+      <section class="panel" id="panel" aria-label="任务侧栏">
+        <section id="list-view" class="list-view">
+          <header class="app-header" data-drag>
+            <div class="brand" data-drag title="拖动标题栏移动窗口">
+              <button class="brand-mark" id="brand" aria-label="侧记，回到今天" title="回到今天"><svg class="icon"><use href="#i-logo"/></svg></button>
+              <span><strong>侧记</strong><span class="header-meta"><span id="current-date"></span><span id="weekday"></span></span></span>
+            </div>
+            <nav class="header-actions" aria-label="侧栏操作">
+              <span class="save-indicator" id="save-indicator" data-status="saved" role="status" title="已保存到本机"><span class="status-dot"></span><span class="sr-only" id="save-label">已保存到本机</span></span>
+              <button class="icon-button" id="search-toggle" title="搜索任务（Ctrl+F）" aria-label="搜索任务" aria-expanded="false"><svg class="icon"><use href="#i-search"/></svg></button>
+              <button class="icon-button" id="settings-open" title="设置" aria-label="打开设置"><svg class="icon"><use href="#i-settings"/></svg></button>
+              <button class="icon-button" id="collapse-button" title="收起侧栏（Esc）" aria-label="收起侧栏"><svg class="icon dock-chevron"><use href="#i-right"/></svg></button>
+            </nav>
+          </header>
+          <div class="list-controls">
+            <div class="view-navigation">
+              <div class="view-tabs" role="tablist" aria-label="任务视图">
+                <button class="view-tab" id="tab-day" data-view="day" role="tab" aria-selected="true" aria-controls="task-list">日<span id="count-day">0</span></button>
+                <button class="view-tab" id="tab-week" data-view="week" role="tab" aria-selected="false" aria-controls="task-list" tabindex="-1">周<span id="count-week">0</span></button>
+                <button class="view-tab" id="tab-month" data-view="month" role="tab" aria-selected="false" aria-controls="task-list" tabindex="-1">月<span id="count-month">0</span></button>
+              </div>
+              <button id="more-views-trigger" class="filter-button" aria-expanded="false" aria-controls="more-views">更多视图<svg class="icon"><use href="#i-down"/></svg></button>
+              <div id="more-views" class="popover task-menu" hidden><div class="popover-heading">其他视图</div><button data-view="all" id="tab-all">全部待办 <span id="count-all">0</span></button><button data-view="completed" id="tab-completed">已完成 <span id="count-completed">0</span></button></div>
+            </div>
+            <div class="period-navigation" id="period-navigation"><button class="icon-button" id="period-prev" aria-label="上一周期"><svg class="icon"><use href="#i-left"/></svg></button><button id="period-label" class="period-label" aria-label="选择日历日期"></button><input id="period-date" type="date" min="1900-01-01" max="9999-12-31" aria-label="跳转日期" hidden><button class="icon-button" id="period-next" aria-label="下一周期"><svg class="icon"><use href="#i-right"/></svg></button><button id="period-today" class="text-button">今天</button></div>
+            <div class="filter-bar">
+              <select id="category-filter" aria-label="筛选分类"><option value="all">全部分类</option><option value="none">未分类</option></select>
+              <button class="filter-button" id="tag-filter-trigger" aria-expanded="false" aria-controls="tag-filter-popover"><svg class="icon"><use href="#i-tag"/></svg><span id="tag-filter-label">标签</span><svg class="icon filter-chevron" aria-hidden="true"><use href="#i-down"/></svg></button>
+              <select id="sort-select" aria-label="任务排序"><option value="priority">重要优先</option><option value="time">时间优先</option><option value="created">最近创建</option></select>
+              <button class="icon-button small" id="taxonomy-open" title="管理分类与标签" aria-label="管理分类与标签"><svg class="icon"><use href="#i-folder"/></svg></button>
+              <div class="popover tag-popover" id="tag-filter-popover" hidden><div class="popover-heading">筛选标签<span>同时符合</span></div><div id="filter-tags-list" class="check-list"></div><button class="text-button" id="filter-tags-clear">清除标签筛选</button></div>
+            </div>
+            <div class="search-box" id="search-box" hidden>
+              <svg class="icon"><use href="#i-search"/></svg><input id="search-input" type="search" placeholder="搜索任务、备注、子任务…" aria-label="搜索当前视图" maxlength="160" autocomplete="off"><button class="icon-button small" id="search-close" aria-label="关闭搜索"><svg class="icon"><use href="#i-close"/></svg></button>
+            </div>
+            <div id="search-options" class="search-options" hidden><select id="search-scope" aria-label="搜索范围"><option value="view">当前视图</option><option value="all">全部待办</option></select><label><input type="checkbox" id="search-completed">包含已完成</label></div>
+            <form class="composer" id="task-form">
+              <div class="composer-input-row"><svg class="icon composer-plus"><use href="#i-plus"/></svg><input id="task-title" type="text" placeholder="添加任务，Enter 确认" aria-label="新任务名称" maxlength="160" autocomplete="off" required><button class="add-button" id="add-task" type="submit" aria-label="添加任务" title="添加任务" disabled><svg class="icon"><use href="#i-right"/></svg></button></div>
+              <div class="composer-options">
+                <button class="option-chip" id="due-trigger" type="button" aria-expanded="false" aria-controls="due-popover"><svg class="icon"><use href="#i-calendar"/></svg><span id="composer-date-label">今天</span></button>
+                <select id="composer-category" aria-label="新任务分类"><option value="none">未分类</option></select>
+                <button class="option-chip" id="composer-tags-trigger" type="button" aria-expanded="false" aria-controls="composer-tags-popover"><svg class="icon"><use href="#i-tag"/></svg><span id="composer-tags-label">标签</span></button>
+                <span class="flex-spacer"></span>
+                <button class="icon-button small" id="priority-trigger" type="button" aria-pressed="false" title="标记为重要" aria-label="标记为重要"><svg class="icon"><use href="#i-flag"/></svg></button>
+                <button class="icon-button small" id="composer-detail" type="button" title="详细添加：子任务、重复与提醒" aria-label="详细添加任务"><svg class="icon"><use href="#i-list"/></svg></button>
+              </div>
+              <div class="popover due-popover" id="due-popover" hidden>
+                <div class="popover-heading" id="due-heading">安排日期</div>
+                <div class="date-presets"><button type="button" data-date="today">今天</button><button type="button" data-date="tomorrow">明天</button><button type="button" data-date="next-week">一周后</button><button type="button" data-date="none">无日期</button></div>
+                <label class="field-label" for="composer-date">选择日期</label><div class="temporal-field"><input class="field-input" id="composer-date" type="date" min="1900-01-01" max="9999-12-31" aria-label="任务日期"><svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg></div><p class="form-message" id="date-message" role="status"></p>
+              </div>
+              <div class="popover tag-popover" id="composer-tags-popover" hidden><div class="popover-heading">任务标签</div><div id="composer-tags-list" class="check-list"></div><button class="text-button" id="composer-manage-tags" type="button">管理标签</button></div>
+            </form>
+            <div class="active-filter" id="active-filter" hidden><span id="active-filter-label"></span><button id="filter-clear" type="button">清除筛选</button></div>
+          </div>
+          <div class="backlog-shortcuts"><button id="backlog-overdue" class="text-button">逾期 <span id="count-overdue">0</span></button><button id="backlog-unscheduled" class="text-button">未安排 <span id="count-unscheduled">0</span></button><span id="projection-status" role="status"></span></div>
+          <div class="task-scroll" id="task-scroll">
+            <div class="task-list" id="task-list" role="tabpanel" aria-labelledby="tab-day" tabindex="0"></div>
+            <div class="empty-state" id="empty-state" hidden><span class="empty-symbol"><svg class="icon"><use href="#i-check"/></svg></span><h2 id="empty-title">还没有任务</h2><p id="empty-copy">写下下一件要做的事。</p><button class="text-button" id="empty-action">添加任务<svg class="icon"><use href="#i-plus"/></svg></button></div>
+          </div>
+        </section>
+
+        <section class="task-detail" id="task-detail" hidden aria-labelledby="edit-heading">
+          <form id="edit-form">
+            <header class="detail-header" data-drag><button class="icon-button" id="detail-back" type="button" aria-label="返回任务列表" title="返回"><svg class="icon"><use href="#i-left"/></svg></button><h2 id="edit-heading">任务详情</h2><span id="detail-dirty" class="detail-dirty" hidden>未保存</span><button class="primary-button compact" id="save-edit" type="submit">保存</button></header>
+            <div class="detail-scroll">
+              <label class="sr-only" for="edit-title">任务名称</label><textarea class="detail-title" id="edit-title" maxlength="160" rows="2" placeholder="任务名称" aria-label="任务名称" required></textarea>
+              <div class="field-grid">
+                <div><label class="field-label" for="edit-date">计划日期</label><div class="temporal-field"><input class="field-input" id="edit-date" type="date" min="1900-01-01" max="9999-12-31"><svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg></div></div>
+                <div><label class="field-label" for="edit-time">具体时间<span>可选</span></label><div class="temporal-field"><input class="field-input" id="edit-time" type="time"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg></div></div>
+              </div>
+              <details class="detail-section" id="schedule-section"><summary><svg class="icon"><use href="#i-repeat"/></svg>重复与提醒<span id="schedule-summary">未设置</span></summary><div class="detail-section-body">
+                <label class="field-label" for="edit-repeat">重复频率</label><select class="field-input" id="edit-repeat"><option value="none">不重复</option><option value="daily">每天</option><option value="weekdays">工作日</option><option value="weekly">每周</option><option value="monthly">每月</option></select>
+                <div id="repeat-until-field" hidden><label class="field-label" for="edit-until">结束日期<span>留空表示一直重复</span></label><div class="temporal-field"><input class="field-input" id="edit-until" type="date" min="1900-01-01" max="9999-12-31"><svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg></div><p class="field-help">完成后生成下一次，保持原来的日历节奏。</p></div>
+                <label class="field-label" for="edit-reminder">到期提醒</label><select class="field-input" id="edit-reminder"><option value="none">关闭提醒</option><option value="0">准时提醒</option><option value="15">提前 15 分钟</option><option value="60">提前 1 小时</option></select><p class="field-help" id="reminder-help">设置日期和时间后可开启提醒。</p>
+              </div></details>
+              <details class="detail-section" id="subtasks-section"><summary><svg class="icon"><use href="#i-list"/></svg>子任务<span id="subtask-summary">0 项</span></summary><div class="detail-section-body"><div id="subtask-editor"></div><div class="subtask-add"><svg class="icon"><use href="#i-plus"/></svg><input id="subtask-title" maxlength="160" placeholder="添加子任务，Enter 确认" aria-label="新子任务名称"><button class="icon-button small" id="subtask-add" type="button" aria-label="添加子任务"><svg class="icon"><use href="#i-right"/></svg></button></div></div></details>
+              <div class="field-grid">
+                <div><label class="field-label" for="edit-category">分类</label><select class="field-input" id="edit-category"><option value="none">未分类</option></select></div>
+                <label class="edit-priority"><input id="edit-priority" type="checkbox"><svg class="icon"><use href="#i-flag"/></svg>重要任务</label>
+              </div>
+              <details class="detail-section" id="tags-section"><summary><svg class="icon"><use href="#i-tag"/></svg>标签<span id="edit-tags-summary">未设置</span></summary><div class="detail-section-body"><div id="edit-tags-list" class="tag-choices"></div><button class="text-button" id="edit-manage-tags" type="button">管理分类与标签</button></div></details>
+              <details class="detail-section" id="notes-section"><summary><svg class="icon"><use href="#i-note"/></svg>备注<span id="notes-summary">未填写</span></summary><div class="detail-section-body"><label class="sr-only" for="edit-notes">备注</label><textarea class="field-input" id="edit-notes" rows="5" maxlength="2000" placeholder="补充细节或下一步…"></textarea></div></details>
+              <p class="form-message" id="edit-message" role="status"></p>
+              <button class="text-button" id="reload-task" type="button" hidden>重新载入任务</button>
+            </div>
+            <footer class="detail-footer"><button class="danger-button" id="delete-task" type="button"><svg class="icon"><use href="#i-trash"/></svg><span id="delete-label">删除任务</span></button><label class="complete-label"><input type="checkbox" id="edit-completed">完成任务</label></footer>
+          </form>
+        </section>
+        <div class="fatal-error" id="fatal-error" role="alert" hidden><strong>暂时无法加载任务</strong><p id="fatal-message"></p><button class="secondary-button" id="reload-button">重新加载</button></div>
+        <div class="toast" id="toast" role="status" aria-live="polite" hidden><span id="toast-message"></span><button id="toast-action" hidden>撤销</button><button class="toast-close" id="toast-close" aria-label="关闭提示"><svg class="icon"><use href="#i-close"/></svg></button></div>
+      </section>
+    </div>
+  </main>
+
+  <dialog class="app-dialog taxonomy-dialog" id="taxonomy-dialog" aria-labelledby="taxonomy-heading">
+    <div class="dialog-heading"><h2 id="taxonomy-heading">分类与标签</h2><button class="icon-button" data-close="taxonomy-dialog" aria-label="关闭分类与标签"><svg class="icon"><use href="#i-close"/></svg></button></div>
+    <div class="manager-tabs" role="tablist" aria-label="管理类型"><button type="button" data-kind="categories" role="tab" aria-selected="true">分类</button><button type="button" data-kind="tags" role="tab" aria-selected="false" tabindex="-1">标签</button></div>
+    <p class="field-help" id="taxonomy-help">一个任务归属一个分类；删除分类后，任务保留在未分类中。</p>
+    <div id="taxonomy-list" class="taxonomy-list"></div>
+    <form id="taxonomy-form"><input id="taxonomy-id" type="hidden"><label class="field-label" for="taxonomy-name" id="taxonomy-form-label">新建分类</label><div class="taxonomy-input-row"><input class="field-input" id="taxonomy-name" maxlength="40" placeholder="例如：工作、生活" required autocomplete="off"><select id="taxonomy-color" class="field-input" aria-label="颜色"></select><button class="primary-button" id="taxonomy-save" type="submit">添加</button></div><button class="text-button" id="taxonomy-cancel-edit" type="button" hidden>取消编辑</button></form>
+    <p class="form-message" id="taxonomy-message" role="status"></p>
+    <div class="inline-confirm" id="taxonomy-confirm" hidden><p id="taxonomy-confirm-label"></p><button class="danger-button" id="taxonomy-confirm-delete" type="button">确认删除</button><button class="secondary-button" id="taxonomy-cancel-delete" type="button">取消</button></div>
+  </dialog>
+
+  <dialog class="app-dialog" id="discard-dialog" aria-labelledby="discard-heading"><div class="dialog-heading"><h2 id="discard-heading">修改还没有保存</h2></div><p class="field-help">保存后再离开，或放弃这次修改。</p><div class="discard-actions"><button class="secondary-button" id="discard-continue">继续编辑</button><button class="danger-button" id="discard-changes">放弃修改</button><button class="primary-button" id="discard-save">保存并继续</button></div></dialog>
+
+  <dialog class="app-dialog settings-dialog" id="settings-dialog" aria-labelledby="settings-heading">
+    <div class="dialog-heading"><div><h2 id="settings-heading">设置</h2></div><button class="icon-button" data-close="settings-dialog" aria-label="关闭设置"><svg class="icon"><use href="#i-close"/></svg></button></div>
+    <section class="theme-settings"><h3>外观</h3><div id="theme-presets" class="theme-presets"></div>
+      <div class="setting-row opacity-setting">
+        <div class="opacity-heading"><label for="setting-handle-transparency">收起图标透明度</label><output id="handle-transparency-value" for="setting-handle-transparency">20%</output></div>
+        <input id="setting-handle-transparency" type="range" min="0" max="80" step="1" value="20" aria-describedby="handle-transparency-help">
+        <p id="handle-transparency-help">0% 为不透明；悬停、键盘聚焦或拖动时恢复清晰</p>
+      </div>
+    </section>
+    <h3 class="settings-subheading">窗口行为</h3>
+    <div class="settings-section">
+      <div class="setting-row"><div><label for="setting-pin">窗口置顶</label><p>展开时也显示在其他窗口上方</p></div><input class="switch" role="switch" id="setting-pin" type="checkbox"></div>
+      <div class="setting-row"><div><label for="setting-collapse">自动停靠</label><p>切换窗口后立即收起到最近边缘</p></div><input class="switch" role="switch" id="setting-collapse" type="checkbox"></div>
+      <div class="setting-row"><div><label for="setting-startup">开机启动</label><p id="startup-help">登录 Windows 后，在边缘静静等你</p></div><input class="switch" role="switch" id="setting-startup" type="checkbox"></div>
+    </div>
+    <div class="window-settings"><p class="field-help">拖动标题栏可移动窗口；切换到其他窗口后，自动收起到最近的桌面边缘。</p><button id="reset-placement" class="secondary-button">重置窗口位置</button></div>
+    <div class="settings-section data-section"><h3>数据与备份</h3><p>备份可以带到另一台电脑。导入后合并任务、分类与标签，保留本机外观和窗口设置。</p><div class="data-actions"><button class="secondary-button" id="export-data"><svg class="icon"><use href="#i-download"/></svg>导出备份</button><button class="secondary-button" id="import-data"><svg class="icon"><use href="#i-upload"/></svg>导入备份</button></div><button class="text-button data-folder" id="data-folder"><svg class="icon"><use href="#i-folder"/></svg>打开数据文件夹<svg class="icon tiny"><use href="#i-right"/></svg></button></div>
+    <p class="form-message settings-message" id="settings-message" role="status">更改会自动保存</p>
+    <p class="settings-note">提醒在程序运行时生效。收起到托盘后仍可提醒；错过的提醒在下次启动时汇总。</p><div class="settings-footer"><span>侧记 SideTask <span id="app-version">1.3.2</span></span><span>本地 · 无需登录</span></div>
+  </dialog>
+  <dialog class="app-dialog" id="preview-dialog" aria-labelledby="preview-heading"><div class="dialog-heading"><h2 id="preview-heading">重复计划预览</h2><button class="icon-button" data-close="preview-dialog" aria-label="关闭预览"><svg class="icon"><use href="#i-close"/></svg></button></div><h3 id="preview-title"></h3><p id="preview-date"></p><p class="field-help" id="preview-rule"></p><p class="field-help">这是预计安排。完成当前任务后才会生成下一次，预览不会发送提醒。</p><button id="preview-edit" class="primary-button">编辑当前任务</button></dialog>
+  <dialog class="app-dialog day-dialog" id="day-dialog" aria-labelledby="day-heading"><div class="dialog-heading"><h2 id="day-heading">当日任务</h2><button class="icon-button" data-close="day-dialog" aria-label="关闭当日清单"><svg class="icon"><use href="#i-close"/></svg></button></div><div id="day-tasks"></div></dialog>
+</body>
+</html>

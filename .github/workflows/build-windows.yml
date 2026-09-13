@@ -1,0 +1,49 @@
+name: Build Windows app
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: x86_64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+      - run: npm run build:frontend
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      - run: npm run test:native
+      - run: npx playwright install chromium --only-shell
+      - run: npm run test:ui
+      - run: npm run build:win
+      - run: cargo install tauri-driver --version 2.0.6 --locked
+      - shell: pwsh
+        run: |
+          $driver = & ./scripts/setup-webdriver.ps1
+          "SIDETASK_EDGE_DRIVER=$driver" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - run: npm run test:desktop
+        env:
+          SIDETASK_TEST_NATIVE_DRAG: '0'
+          SIDETASK_TEST_FILE_DIALOGS: '1'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SideTask-Windows
+          path: |
+            release/SideTask-*.exe
+            release/SideTask-*.sha256
+          if-no-files-found: error
