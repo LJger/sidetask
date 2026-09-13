@@ -103,7 +103,7 @@ export function createBrowserBridge() {
   return {
     async getState() {
       return { state: snapshot(), window: windows.snapshot(), warning,
-        info: { version: '1.3.2', platform: 'browser', runtime: 'browser', canLaunchAtLogin: false, canOpenDataFolder: false,
+        info: { version: '1.3.3', platform: 'browser', runtime: 'browser', canLaunchAtLogin: false, canOpenDataFolder: false,
           canNotify: false, shortcut: 'Ctrl + Shift + Space', shortcutRegistered: true } };
     },
     addTask: input => commit('task:add', { input }),
