@@ -94,6 +94,7 @@ struct Runtime {
     early_actions: Vec<Value>,
     published: Value,
     applied_bounds: Option<Rect>,
+    applied_region: Option<Option<Rect>>,
     applied_pin: Option<bool>,
     tray_state: Option<(bool, bool, usize)>,
     notifications: Option<platform::Notifications>,
@@ -262,11 +263,20 @@ impl Runtime {
     }
 
     fn sync(&mut self) {
-        if !self.windows.dragging && self.applied_bounds != Some(self.windows.bounds) {
-            if let Err(error) = platform::set_bounds(&self.window, self.windows.bounds) {
+        let bounds = self.windows.native_bounds();
+        if !self.windows.dragging && self.applied_bounds != Some(bounds) {
+            if let Err(error) = platform::set_bounds(&self.window, bounds) {
                 self.window_error(format!("无法调整窗口位置：{error}"));
             } else {
-                self.applied_bounds = Some(self.windows.bounds);
+                self.applied_bounds = Some(bounds);
+            }
+        }
+        let region = self.windows.native_region();
+        if self.applied_region != Some(region) {
+            if let Err(error) = platform::set_region(&self.window, region) {
+                self.window_error(error);
+            } else {
+                self.applied_region = Some(region);
             }
         }
         let pin = !self.windows.expanded || self.store.snapshot().settings.always_on_top;
@@ -552,18 +562,21 @@ impl Runtime {
             Op::Focus(focused) => self.windows.focus(focused, Instant::now()),
             Op::DragBegin => { let _ = self.windows.start_drag(); }
             Op::Moved(bounds) => {
-                self.windows.moved(bounds);
                 // Windows can resize a window again while processing a DPI
                 // change. Read current bounds instead of trusting an old event.
                 self.applied_bounds = platform::bounds(&self.window).ok();
+                self.windows.moved_native(self.applied_bounds.unwrap_or(bounds));
             }
-            Op::DragEnd(bounds) => { self.windows.end_drag(bounds, Instant::now()); self.protect(); }
+            Op::DragEnd(bounds) => {
+                self.windows.end_native_drag(platform::bounds(&self.window).unwrap_or(bounds), Instant::now());
+                self.protect();
+            }
             Op::DisplaysChanged => {
                 if let Ok(monitors) = platform::monitors() {
                     if self.windows.dragging {
                         self.windows.monitors = monitors;
                         self.windows.monitor = self.windows.monitor.min(self.windows.monitors.len() - 1);
-                        if let Ok(bounds) = platform::bounds(&self.window) { self.windows.moved(bounds); }
+                        if let Ok(bounds) = platform::bounds(&self.window) { self.windows.moved_native(bounds); }
                     } else { self.windows.update_monitors(monitors); self.applied_bounds = None; }
                 }
             }
@@ -692,7 +705,7 @@ pub fn run() {
             );
             windows.auto_collapse = settings.auto_collapse;
             windows.protected = true;
-            let size = windows.bounds.divided(windows.current_monitor().scale);
+            let size = windows.native_bounds().divided(windows.current_monitor().scale);
             let mut builder =
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::App("src/index.html".into()))
                     .title("侧记 SideTask")
@@ -763,6 +776,7 @@ pub fn run() {
                 early_actions: vec![],
                 published: Value::Null,
                 applied_bounds: None,
+                applied_region: None,
                 applied_pin: None,
                 tray_state: None,
                 notifications: None,

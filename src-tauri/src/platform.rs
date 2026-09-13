@@ -17,7 +17,8 @@ use windows::{
     Win32::{
         Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM},
         Graphics::Gdi::{
-            EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITORINFO, MONITORINFOEXW,
+            CreateRectRgn, DeleteObject, EnumDisplayMonitors, GetMonitorInfoW, SetWindowRgn,
+            HDC, HGDIOBJ, HMONITOR, MONITORINFO, MONITORINFOEXW,
         },
         System::WinRT::{RoInitialize, RO_INIT_MULTITHREADED},
         UI::{
@@ -183,6 +184,37 @@ pub fn set_bounds(window: &WebviewWindow, bounds: Rect) -> Result<()> {
             SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER,
         )
         .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+pub fn set_region(window: &WebviewWindow, bounds: Option<Rect>) -> Result<()> {
+    let hwnd = window.hwnd().map_err(|e| e.to_string())?;
+    unsafe {
+        let region = if let Some(bounds) = bounds {
+            let region = CreateRectRgn(
+                bounds.x.round() as i32,
+                bounds.y.round() as i32,
+                (bounds.x + bounds.width).round() as i32,
+                (bounds.y + bounds.height).round() as i32,
+            );
+            if region.0.is_null() {
+                return Err("无法创建窗口可见区域。".into());
+            }
+            Some(region)
+        } else {
+            None
+        };
+        // A window region clips both drawing and input. The hidden panel cannot
+        // intercept desktop clicks, and WebView2 never loses its handle frame
+        // to a viewport resize when collapsing or expanding.
+        if SetWindowRgn(hwnd, region, true) == 0 {
+            if let Some(region) = region {
+                let _ = DeleteObject(HGDIOBJ(region.0));
+            }
+            return Err("无法更新窗口可见区域。".into());
+        }
+        // Windows owns the region after a successful SetWindowRgn call.
     }
     Ok(())
 }

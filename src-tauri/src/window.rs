@@ -29,6 +29,7 @@ pub struct WindowController {
     travel: Option<Travel>,
     deadline: Option<Instant>,
     drag_deadline: Option<Instant>,
+    drag_layout: Option<Layout>,
 }
 
 impl WindowController {
@@ -79,6 +80,7 @@ impl WindowController {
             travel: None,
             deadline: None,
             drag_deadline: None,
+            drag_layout: None,
         }
     }
 
@@ -86,12 +88,24 @@ impl WindowController {
         &self.monitors[self.monitor]
     }
     pub fn layout(&self) -> Layout {
-        layout(
+        self.drag_layout.unwrap_or_else(|| layout(
             self.current_monitor(),
             &self.placement,
             &self.view,
             (self.placement.mode == "floating").then_some(self.bounds),
-        )
+        ))
+    }
+    // The visible bounds can be a 40-DIP handle while the native WebView2
+    // surface keeps its full size. Clipping preserves its already drawn pixels.
+    pub fn native_bounds(&self) -> Rect {
+        if self.surface_expanded {
+            self.bounds
+        } else {
+            self.layout().full
+        }
+    }
+    pub fn native_region(&self) -> Option<Rect> {
+        (!self.surface_expanded).then(|| self.layout().handle_region())
     }
     pub fn settled(&self) -> bool {
         self.stage == "settled" && self.travel.is_none() && !self.dragging
@@ -120,6 +134,7 @@ impl WindowController {
             "handleOffset": { "x": geometry.offset.x / scale, "y": geometry.offset.y / scale },
             "shift": { "x": geometry.shift.x / scale, "y": geometry.shift.y / scale },
             "bounds": self.bounds.divided(scale), "nativeBounds": self.bounds, "scaleFactor": scale,
+            "hostBounds": self.native_bounds(), "hostRegion": self.native_region(),
             "monitor": self.current_monitor()
         })
     }
@@ -278,6 +293,7 @@ impl WindowController {
         if !self.settled() {
             return Err("请稍候，窗口正在展开或收起。".into());
         }
+        self.drag_layout = (!self.expanded).then(|| self.layout());
         self.dragging = true;
         self.automatic = false;
         self.focus_restored = false;
@@ -305,6 +321,25 @@ impl WindowController {
         }
     }
 
+    pub fn moved_native(&mut self, bounds: Rect) {
+        if !self.dragging {
+            return;
+        }
+        let visible = if self.expanded {
+            bounds
+        } else {
+            let geometry = self.layout().with_native_bounds(bounds);
+            self.drag_layout = Some(geometry);
+            geometry.handle
+        };
+        self.moved(visible);
+    }
+
+    pub fn end_native_drag(&mut self, bounds: Rect, now: Instant) {
+        self.moved_native(bounds);
+        self.end_drag(self.bounds, now);
+    }
+
     pub fn end_drag(&mut self, bounds: Rect, now: Instant) {
         self.drag_deadline = None;
         if !self.dragging {
@@ -312,6 +347,7 @@ impl WindowController {
         }
         self.moved(bounds);
         self.dragging = false;
+        self.drag_layout = None;
         if !self.expanded {
             self.placement =
                 nearest_dock(self.current_monitor().work_area, bounds, &self.placement);
@@ -323,6 +359,7 @@ impl WindowController {
     pub fn refresh(&mut self) {
         self.travel = None;
         self.deadline = None;
+        self.drag_layout = None;
         self.focus_restored = false;
         self.transition_id += 1;
         self.surface_expanded = self.expanded;

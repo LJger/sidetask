@@ -178,6 +178,43 @@ pub struct Layout {
     pub shift: Point,
 }
 
+impl Layout {
+    pub fn handle_region(self) -> Rect {
+        Rect {
+            x: self.handle.x - self.full.x,
+            y: self.handle.y - self.full.y,
+            width: self.handle.width,
+            height: self.handle.height,
+        }
+        .rounded()
+    }
+
+    // Keep the handle attached to its viewport while Windows moves the host
+    // or scales it on another monitor. Docking is recalculated on release.
+    pub fn with_native_bounds(self, full: Rect) -> Self {
+        let x_scale = full.width / self.full.width;
+        let y_scale = full.height / self.full.height;
+        Self {
+            full,
+            handle: Rect {
+                x: full.x + (self.handle.x - self.full.x) * x_scale,
+                y: full.y + (self.handle.y - self.full.y) * y_scale,
+                width: self.handle.width * x_scale,
+                height: self.handle.height * y_scale,
+            }
+            .rounded(),
+            offset: Point {
+                x: self.offset.x * x_scale,
+                y: self.offset.y * y_scale,
+            },
+            shift: Point {
+                x: self.shift.x * x_scale,
+                y: self.shift.y * y_scale,
+            },
+        }
+    }
+}
+
 pub fn layout(
     monitor: &Monitor,
     placement: &Placement,

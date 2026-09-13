@@ -54,12 +54,13 @@ const windowInfo = async(action='Info')=>{
 };
 async function nativeDragTo(x,y,collapsed=true) {
   const native=await windowInfo('Focus');
+  const origin=collapsed?native.visibleBounds:native.bounds;
   const offset=await driver.execute(collapsed=>{
     const target=document.querySelector(collapsed?'#edge-handle':'.app-header').getBoundingClientRect();
     return {x:target.x+target.width/2,y:target.y+(collapsed?target.height/2:12),width:innerWidth,height:innerHeight};
   },collapsed);
   await powershell('native-drag.ps1',['-WindowHandle',native.handle,'-OffsetX',String(offset.x),'-OffsetY',String(offset.y),
-    '-ViewportWidth',String(offset.width),'-ViewportHeight',String(offset.height),'-DeltaX',String(x-native.bounds.x),'-DeltaY',String(y-native.bounds.y),
+    '-ViewportWidth',String(offset.width),'-ViewportHeight',String(offset.height),'-DeltaX',String(x-origin.x),'-DeltaY',String(y-origin.y),
     '-LogicalWidth',String(native.bounds.width),'-LogicalHeight',String(native.bounds.height)]);
   await driver.waitUntil(async()=>(await state()).window.dragging===false,{timeout:5000});
 }
@@ -159,7 +160,7 @@ try {
         assert.equal(current.monitor.id,display.id);
         assert.equal(current.dockSide,edge);
         await visibleHandle();
-        const measured=(await windowInfo()).bounds;
+        const measured=(await windowInfo()).visibleBounds;
         const boundary=edge==='left'?measured.x-area.x:edge==='right'?measured.x+measured.width-area.x-area.width:
           edge==='top'?measured.y-area.y:measured.y+measured.height-area.y-area.height;
         assert.ok(Math.abs(boundary)<=1,JSON.stringify({edge,measured,area}));
