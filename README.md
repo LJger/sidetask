@@ -153,9 +153,9 @@ node scripts/capture-preview.mjs
 
 预览地址为 http://127.0.0.1:4173。截图脚本需要先启动预览服务，使用独立演示数据，不影响日常任务。
 
-Linux／WSL 可以运行浏览器预览、JavaScript 测试和 Rust 核心测试。Playwright 需要 Chromium 及其系统库，可通过 npx playwright install --with-deps chromium --only-shell 准备。桌面测试在 Windows 使用 WebdriverIO、tauri-driver 与匹配 WebView2 版本的 EdgeDriver，全部使用独立临时数据目录。
+Linux／WSL 可以运行浏览器预览、JavaScript 测试和 Rust 核心测试。Playwright 需要 Chromium 及其系统库，可通过 npx playwright install --with-deps chromium --only-shell 准备。桌面测试在 Windows 使用 WebdriverIO 与匹配 WebView2 版本的 EdgeDriver，通过本机临时端口连接测试程序，全部使用独立临时数据目录。
 
-Windows 上先运行 cargo install tauri-driver --version 2.0.6 --locked，再准备对应版本的 EdgeDriver。以下命令验证已打包程序，包括实际鼠标拖动和各档缩放：
+Windows 上先准备对应版本的 EdgeDriver。以下命令验证已打包程序，包括实际鼠标拖动和各档缩放：
 
 ~~~powershell
 $env:SIDETASK_EDGE_DRIVER = powershell -ExecutionPolicy Bypass -File scripts/setup-webdriver.ps1

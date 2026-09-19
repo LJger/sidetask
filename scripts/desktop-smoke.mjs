@@ -13,7 +13,6 @@ if (process.platform !== 'win32') throw new Error('原生桌面测试需在 Wind
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const { version } = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 const executable = path.resolve(process.env.SIDETASK_TEST_EXECUTABLE || path.join(root, 'src-tauri/target/x86_64-pc-windows-msvc/release/SideTask.exe'));
-const tauriDriver = process.env.SIDETASK_TAURI_DRIVER || path.join(process.env.CARGO_HOME || path.join(os.homedir(), '.cargo'), 'bin/tauri-driver.exe');
 const edgeDriver = process.env.SIDETASK_EDGE_DRIVER || 'msedgedriver.exe';
 const directory = await mkdtemp(path.join(os.tmpdir(), 'sidetask-native-'));
 console.log('Native test data: ' + directory);
@@ -26,17 +25,13 @@ const freePort = () => new Promise((resolve, reject) => {
   const server = createServer(); server.on('error', reject);
   server.listen(0, '127.0.0.1', () => { const port = server.address().port; server.close(() => resolve(port)); });
 });
-const port = await freePort(), nativePort = await freePort();
-const child = spawn(tauriDriver, ['--port', String(port), '--native-port', String(nativePort), '--native-driver', edgeDriver], {
-  windowsHide: true,
-  env: { ...process.env, SIDETASK_USER_DATA: directory, SIDETASK_TEST_MODE: '1', SIDETASK_DIAGNOSTICS: '1',
-    ...(scale ? { SIDETASK_TEST_BROWSER_ARGS: '--force-device-scale-factor=' + scale } : {}) },
-});
+const port = await freePort();
+const child = spawn(edgeDriver, ['--port=' + port, '--verbose', '--log-path=' + path.join(directory, 'edgedriver.log')], { windowsHide: true });
 let logs = '', spawnError;
 child.stdout.on('data', chunk => { logs += chunk; });
 child.stderr.on('data', chunk => { logs += chunk; });
 child.on('error', error => { spawnError = error; });
-let driver;
+let driver, appProcess, appClosed;
 const waitPhase = async phase => driver.waitUntil(async () => (await driver.execute(() => document.body.dataset.phase)) === phase, { timeout: 10000, timeoutMsg: 'Window did not settle to ' + phase });
 const state = () => driver.execute(() => window.sideTask.getState());
 const invoke = (command, args = {}) => driver.execute((command, args) => window.__TAURI__.core.invoke('request', { command, args }), command, args);
@@ -85,11 +80,33 @@ async function clickHandle() {
   await driver.releaseActions();
 }
 async function connect(args = []) {
-  const options = { application: executable, args };
-  if (scale) options.webviewOptions = { additionalBrowserArguments: ['--force-device-scale-factor=' + scale] };
+  // Attach to our explicit port: the app owns its WebView2 data directory, so
+  // EdgeDriver's launch mode looks for DevToolsActivePort in the wrong profile.
+  // https://learn.microsoft.com/microsoft-edge/webview2/how-to/webdriver
+  const debugPort = await freePort();
+  const browserArgs = ['--remote-debugging-port=' + debugPort, '--remote-debugging-address=127.0.0.1'];
+  if (scale) browserArgs.push('--force-device-scale-factor=' + scale);
+  let appError;
+  appProcess = spawn(executable, args, { windowsHide: true,
+    env: { ...process.env, SIDETASK_USER_DATA: directory, SIDETASK_TEST_MODE: '1', SIDETASK_DIAGNOSTICS: '1',
+      SIDETASK_TEST_BROWSER_ARGS: browserArgs.join(' ') } });
+  appClosed = new Promise(resolve => {
+    appProcess.once('exit', resolve);
+    appProcess.once('error', error => { appError = error; resolve(); });
+  });
+  appProcess.stdout.on('data', chunk => { logs += chunk; });
+  appProcess.stderr.on('data', chunk => { logs += chunk; });
+  const deadline = Date.now() + 60000;
+  while (true) {
+    if (appError) throw appError;
+    if (appProcess.exitCode !== null) throw new Error('Application exited before WebView2 was ready: ' + appProcess.exitCode);
+    try { if ((await fetch(`http://127.0.0.1:${debugPort}/json/version`, { signal: AbortSignal.timeout(2000) })).ok) break; } catch {}
+    if (Date.now() >= deadline) throw new Error('WebView2 debugging endpoint did not become ready');
+    await delay(100);
+  }
   // Let EdgeDriver report its own startup failure, including on a cold CI host.
   driver = await remote({ hostname:'127.0.0.1',port,path:'/',logLevel:'warn',connectionRetryCount:0,connectionRetryTimeout:120000,
-    capabilities:{ 'tauri:options':options } });
+    capabilities:{ browserName:'webview2', 'ms:edgeOptions': { debuggerAddress:`127.0.0.1:${debugPort}` } } });
   await driver.waitUntil(() => driver.execute(() => document.body.dataset.ready === 'true'), { timeout:15000 });
   const fatal = await driver.execute(() => document.getElementById('fatal-error').hidden ? null : document.getElementById('fatal-message').textContent);
   assert.equal(fatal,null);
@@ -99,6 +116,9 @@ async function stopApp() {
   try { await invoke('app:quit'); } catch { /* The response may race normal process exit. */ }
   try { await driver.deleteSession(); } catch { /* Already stopped. */ }
   driver = null;
+  await Promise.race([appClosed, delay(5000)]);
+  if (appProcess.exitCode === null) { appProcess.kill(); await appClosed; }
+  appProcess = null;
 }
 
 try {
@@ -299,11 +319,12 @@ try {
   throw error;
 } finally {
   if (driver) await stopApp();
+  if (appProcess && appProcess.exitCode === null) { appProcess.kill(); await appClosed; }
   child.kill();
   const artifacts = path.join(root, 'test-results', 'native');
   await mkdir(artifacts, { recursive: true });
   await writeFile(path.join(artifacts, 'driver.log'), logs);
-  for (const name of ['window-diagnostics.jsonl', 'test-notifications.jsonl']) {
+  for (const name of ['window-diagnostics.jsonl', 'test-notifications.jsonl', 'edgedriver.log']) {
     try { await cp(path.join(directory, name), path.join(artifacts, name)); }
     catch (error) { if (error.code !== 'ENOENT') console.error('Could not collect ' + name, error.message); }
   }

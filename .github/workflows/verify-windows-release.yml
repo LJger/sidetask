@@ -1,0 +1,45 @@
+name: Verify Windows release
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: Build Windows app run containing the SideTask-Windows artifact
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  desktop:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: SideTask-Windows
+          path: release
+          run-id: ${{ inputs.build_run_id }}
+          github-token: ${{ github.token }}
+      - shell: pwsh
+        run: |
+          $driver = & ./scripts/setup-webdriver.ps1
+          "SIDETASK_EDGE_DRIVER=$driver" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $executable = (Resolve-Path "release/SideTask-Portable-$version-x64.exe").Path
+          "SIDETASK_TEST_EXECUTABLE=$executable" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - run: npm run test:desktop
+        env:
+          SIDETASK_TEST_NATIVE_DRAG: '0'
+          SIDETASK_TEST_FILE_DIALOGS: '1'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: SideTask-Release-Diagnostics
+          path: test-results/
+          if-no-files-found: ignore
