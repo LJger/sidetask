@@ -1,6 +1,6 @@
 {
   "name": "sidetask",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "private": true,
   "description": "侧记 · 一个安静待在桌面侧边的本地任务工具",
   "type": "module",
