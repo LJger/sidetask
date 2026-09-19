@@ -5,7 +5,7 @@ export const COLORS = ['#32654d', '#4676a9', '#8262ad', '#b9784a', '#b55b7b', '#
 export const REPEAT_LABELS = { daily: '每天', weekdays: '工作日', weekly: '每周', monthly: '每月' };
 export const DEFAULT_SETTINGS = Object.freeze({
   dockSide: 'right', alwaysOnTop: true, autoCollapse: true, launchAtLogin: false,
-  themePreset: 'pine', collapsedHandleOpacity: 0.8, calendarView: 'day', windowPlacement: Object.freeze(defaultPlacement()),
+  themePreset: 'pine', collapsedHandleOpacity: 0.8, panelOpacity: 1, showCompleted: true, calendarView: 'day', windowPlacement: Object.freeze(defaultPlacement()),
 });
 
 export function assertObject(value, label) {
@@ -208,12 +208,16 @@ export function validateSettings(patch) {
     if (!Number.isFinite(patch.collapsedHandleOpacity) || patch.collapsedHandleOpacity < 0.2 || patch.collapsedHandleOpacity > 1) throw new Error('收起图标透明度无效。');
     result.collapsedHandleOpacity = patch.collapsedHandleOpacity;
   }
+  if (Object.hasOwn(patch, 'panelOpacity')) {
+    if (!Number.isFinite(patch.panelOpacity) || patch.panelOpacity < 0.2 || patch.panelOpacity > 1) throw new Error('面板透明度无效。');
+    result.panelOpacity = patch.panelOpacity;
+  }
   if (Object.hasOwn(patch, 'calendarView')) {
     if (!['day', 'week', 'month'].includes(patch.calendarView)) throw new Error('日历视图无效。');
     result.calendarView = patch.calendarView;
   }
   if (Object.hasOwn(patch, 'windowPlacement')) result.windowPlacement = validatePlacement(patch.windowPlacement);
-  for (const key of ['alwaysOnTop', 'autoCollapse', 'launchAtLogin']) {
+  for (const key of ['alwaysOnTop', 'autoCollapse', 'launchAtLogin', 'showCompleted']) {
     if (Object.hasOwn(patch, key)) {
       if (typeof patch[key] !== 'boolean') throw new Error('设置值无效。');
       result[key] = patch[key];
@@ -302,12 +306,15 @@ export function selectTasks(tasks, options = {}) {
   const { view = 'today', today = localDate(), sort = 'priority' } = options;
   const group = task => !task.dueDate ? 3 : task.dueDate < today ? 0 : task.dueDate === today ? 1 : 2;
   return tasks.filter(task => {
-    if (view === 'completed' ? !task.completedAt : Boolean(task.completedAt)) return false;
+    if (view === 'completed' ? !task.completedAt : !options.includeCompleted && Boolean(task.completedAt)) return false;
     if (view === 'today' && (!task.dueDate || task.dueDate > today)) return false;
     if (view === 'planned' && (!task.dueDate || task.dueDate <= today)) return false;
     return matchesFilters(task, options);
   }).sort((a, b) => {
     if (view === 'completed') return b.completedAt.localeCompare(a.completedAt) || a.id.localeCompare(b.id);
+    const byStatus = Number(Boolean(a.completedAt)) - Number(Boolean(b.completedAt));
+    if (byStatus) return byStatus;
+    if (a.completedAt && b.completedAt) return b.completedAt.localeCompare(a.completedAt) || a.id.localeCompare(b.id);
     const byGroup = group(a) - group(b);
     const byDate = (a.dueDate ?? '9999-12-31').localeCompare(b.dueDate ?? '9999-12-31');
     if (byGroup || (group(a) === 2 && byDate)) return byGroup || byDate;
@@ -321,7 +328,7 @@ export function selectTasks(tasks, options = {}) {
 export function groupTasks(tasks, view, today = localDate()) {
   const groups = new Map();
   for (const task of tasks) {
-    const label = view === 'completed' ? '已完成' : !task.dueDate ? '未安排'
+    const label = view === 'completed' || task.completedAt ? '已完成' : !task.dueDate ? '未安排'
       : task.dueDate < today ? '逾期' : task.dueDate === today ? '今天' : describeDate(task.dueDate, today).label;
     if (!groups.has(label)) groups.set(label, []);
     groups.get(label).push(task);

@@ -6,6 +6,7 @@ struct Travel {
     source: Rect,
     target: Rect,
     start: Instant,
+    next_frame: Instant,
 }
 
 pub struct WindowController {
@@ -88,12 +89,14 @@ impl WindowController {
         &self.monitors[self.monitor]
     }
     pub fn layout(&self) -> Layout {
-        self.drag_layout.unwrap_or_else(|| layout(
-            self.current_monitor(),
-            &self.placement,
-            &self.view,
-            (self.placement.mode == "floating").then_some(self.bounds),
-        ))
+        self.drag_layout.unwrap_or_else(|| {
+            layout(
+                self.current_monitor(),
+                &self.placement,
+                &self.view,
+                (self.placement.mode == "floating").then_some(self.bounds),
+            )
+        })
     }
     // The visible bounds can be a 40-DIP handle while the native WebView2
     // surface keeps its full size. Clipping preserves its already drawn pixels.
@@ -188,6 +191,7 @@ impl WindowController {
                 source,
                 target,
                 start: now,
+                next_frame: now,
             });
             self.tick(now);
         } else {
@@ -244,22 +248,25 @@ impl WindowController {
         if self.drag_deadline.is_some_and(|deadline| now >= deadline) {
             self.end_drag(self.bounds, now);
         }
-        if let Some(travel) = &self.travel {
-            let progress = if self.reduced_motion {
-                1.0
-            } else {
-                (now.duration_since(travel.start).as_secs_f64() / 0.160).min(1.0)
-            };
-            let eased = 1.0 - (1.0 - progress).powi(3);
-            self.bounds = Rect {
-                x: travel.source.x + (travel.target.x - travel.source.x) * eased,
-                y: travel.source.y + (travel.target.y - travel.source.y) * eased,
-                ..travel.target
-            }
-            .rounded();
-            if progress >= 1.0 {
-                self.travel = None;
-                self.request(false, now);
+        if let Some(travel) = &mut self.travel {
+            if now >= travel.next_frame {
+                travel.next_frame = now + Duration::from_millis(16);
+                let progress = if self.reduced_motion {
+                    1.0
+                } else {
+                    (now.duration_since(travel.start).as_secs_f64() / 0.160).min(1.0)
+                };
+                let eased = 1.0 - (1.0 - progress).powi(3);
+                self.bounds = Rect {
+                    x: travel.source.x + (travel.target.x - travel.source.x) * eased,
+                    y: travel.source.y + (travel.target.y - travel.source.y) * eased,
+                    ..travel.target
+                }
+                .rounded();
+                if progress >= 1.0 {
+                    self.travel = None;
+                    self.request(false, now);
+                }
             }
         }
         if self.deadline.is_some_and(|deadline| now >= deadline) {
@@ -402,7 +409,7 @@ impl WindowController {
     }
 
     pub fn update_monitors(&mut self, monitors: Vec<Monitor>) {
-        if monitors.is_empty() {
+        if monitors.is_empty() || self.monitors == monitors {
             return;
         }
         self.monitors = monitors;

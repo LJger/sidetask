@@ -70,9 +70,10 @@ export function createBrowserBridge() {
       state = next;
       if (type === 'task:undo') undoHistory.forget(args.token);
       const undoToken = undoHistory.remember(undo);
-      stateListeners.forEach(callback => callback(snapshot()));
+      const committed = snapshot();
+      stateListeners.forEach(callback => callback(committed));
       if (type !== 'reminders:claim') void scheduler?.refresh(type === 'data:import');
-      return { state: snapshot(), result: structuredClone(result), ...(undoToken ? { undoToken } : {}) };
+      return { state: committed, result: structuredClone(result), ...(undoToken ? { undoToken } : {}) };
     };
     const operation = queue.then(() => navigator.locks ? navigator.locks.request(STORAGE_KEY, perform) : perform());
     queue = operation.catch(() => {});

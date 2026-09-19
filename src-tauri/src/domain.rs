@@ -74,12 +74,23 @@ pub struct Settings {
     pub theme_preset: String,
     #[serde(default = "default_handle_opacity")]
     pub collapsed_handle_opacity: f64,
+    #[serde(default = "default_panel_opacity")]
+    pub panel_opacity: f64,
+    #[serde(default = "default_show_completed")]
+    pub show_completed: bool,
     pub calendar_view: String,
     pub window_placement: Placement,
 }
 
 fn default_handle_opacity() -> f64 {
     0.8
+}
+
+fn default_panel_opacity() -> f64 {
+    1.0
+}
+fn default_show_completed() -> bool {
+    true
 }
 
 impl Default for Settings {
@@ -91,6 +102,8 @@ impl Default for Settings {
             launch_at_login: false,
             theme_preset: "pine".into(),
             collapsed_handle_opacity: default_handle_opacity(),
+            panel_opacity: default_panel_opacity(),
+            show_completed: default_show_completed(),
             calendar_view: "day".into(),
             window_placement: Placement::default(),
         }
@@ -306,6 +319,8 @@ pub fn validate_settings(patch: &Value, previous: &Settings) -> Result<Settings>
         "launchAtLogin",
         "themePreset",
         "collapsedHandleOpacity",
+        "panelOpacity",
+        "showCompleted",
         "calendarView",
         "windowPlacement",
     ] {
@@ -333,6 +348,9 @@ pub fn validate_settings(patch: &Value, previous: &Settings) -> Result<Settings>
         || !(0.2..=1.0).contains(&settings.collapsed_handle_opacity)
     {
         return Err("收起图标透明度无效。".into());
+    }
+    if !settings.panel_opacity.is_finite() || !(0.2..=1.0).contains(&settings.panel_opacity) {
+        return Err("面板透明度无效。".into());
     }
     if !["day", "week", "month"].contains(&settings.calendar_view.as_str()) {
         return Err("日历视图无效。".into());

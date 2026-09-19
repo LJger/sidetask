@@ -5,7 +5,7 @@ export async function createTauriBridge() {
   const early = [];
   let revision = -1, latestState;
   const remember = (state, nextRevision) => {
-    if (nextRevision < revision) return false;
+    if (nextRevision <= revision) return false;
     revision = nextRevision;
     latestState = state;
     return true;
@@ -22,7 +22,10 @@ export async function createTauriBridge() {
   const request = async (command, args = {}) => {
     try {
       const response = await invoke('request', { command, args });
-      if (response?.state && !remember(response.state, response.revision)) response.state = structuredClone(latestState);
+      if (response?.state) {
+        if (remember(response.state, response.revision)) listeners['state:changed'].forEach(callback => callback(latestState));
+        response.state = latestState;
+      }
       return response;
     }
     catch (error) { throw new Error(typeof error === 'string' ? error : error?.message || '操作失败，请重试。'); }

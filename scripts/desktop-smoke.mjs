@@ -143,6 +143,26 @@ try {
   if (process.env.SIDETASK_TEST_QUICK!=='1') console.log('24 native handle combinations passed');
   await click('#tab-day');
   if (process.env.SIDETASK_TEST_NATIVE_DRAG !== '0') {
+    // Real cross-process input, not just the shape of our own clipped region.
+    for (const edge of ['left', 'right', 'top', 'bottom']) {
+      await driver.execute(async edge => {
+        const current = await window.sideTask.getState();
+        await window.sideTask.setSettings({ windowPlacement: { ...current.state.settings.windowPlacement, mode: 'docked', edge, anchor: 0.5 } });
+        await window.sideTask.collapse();
+      }, edge);
+      await waitPhase('collapsed');
+      const native = await windowInfo();
+      await powershell('native-input.ps1', ['-WindowHandle', native.handle,
+        '-X', String(Math.round(native.bounds.x + native.bounds.width / 2)),
+        '-Y', String(Math.round(native.bounds.y + native.bounds.height / 2))]);
+      await clickHandle(); await waitPhase('expanded');
+    }
+    const full = (await state()).window;
+    const native = await windowInfo();
+    const probeArea = full.monitor.workArea;
+    const x = full.hostBounds.x + full.hostBounds.width / 2 > probeArea.x + probeArea.width / 2 ? probeArea.x + 150 : probeArea.x + probeArea.width - 150;
+    await powershell('native-input.ps1', ['-WindowHandle', native.handle, '-X', String(Math.round(x)), '-Y', String(Math.round(probeArea.y + 200))]);
+    console.log('Underlying window click, wheel, menu and focus checks passed');
     const displays=(await windowInfo()).displays;
     const targets=scale?displays.filter(display=>display.primary):displays;
     for (const display of targets) {

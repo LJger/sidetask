@@ -4,14 +4,17 @@ export class CalendarProjection {
   constructor(update, failed) {
     this.update = update; this.failed = failed; this.id = 0; this.key = ''; this.previews = []; this.loading = false;
     this.worker = new Worker(new URL('./calendar-worker.mjs', import.meta.url), { type: 'module' });
+    this.busy = false; this.pending = null;
     this.worker.onmessage = ({ data }) => {
+      this.busy = false;
+      if (this.pending) { const pending = this.pending; this.pending = null; this.dispatch(pending); }
       if (data.id !== this.id) return;
       this.loading = false;
       this.previews = data.previews ?? [];
       if (data.error) this.failed(data.error);
       this.update();
     };
-    this.worker.onerror = () => { this.loading = false; this.failed('重复计划预览暂不可用，已保存任务仍可正常使用。'); };
+    this.worker.onerror = () => { this.busy = false; this.pending = null; this.loading = false; this.key = ''; this.failed('重复计划预览暂不可用，已保存任务仍可正常使用。'); };
     window.addEventListener('pagehide', () => this.worker.terminate(), { once: true });
   }
   schedule(tasks, range, today) {
@@ -19,17 +22,36 @@ export class CalendarProjection {
     const key = JSON.stringify([minimal, range.start, range.end, today]);
     if (key === this.key) return;
     this.key = key; this.previews = []; this.loading = true;
-    this.worker.postMessage({ id: ++this.id, tasks: minimal, start: range.start, end: range.end, today });
+    const request = { id: ++this.id, tasks: minimal, start: range.start, end: range.end, today };
+    if (this.busy) this.pending = request;
+    else this.dispatch(request);
   }
+  dispatch(request) { this.busy = true; this.worker.postMessage(request); }
+}
+
+export function groupByDate(items, dateKey) {
+  const groups = new Map();
+  for (const item of items) {
+    const date = item[dateKey];
+    if (!groups.has(date)) groups.set(date, []);
+    groups.get(date).push(item);
+  }
+  return groups;
 }
 
 export function calendarGrid({ view, range, anchor, selected, today, tasks, previews, getTask, selectDate, edit, toggle, preview, openDay, addAt, limits, loadMore }) {
   const grid = el('div', 'calendar-grid ' + view + '-grid');
+  const taskDays = groupByDate(tasks, 'dueDate');
+  const previewDays = groupByDate(previews, 'date');
   grid.setAttribute('aria-label', view === 'month' ? '月日历' : '周日历');
   if (view === 'month') for (const name of ['一', '二', '三', '四', '五', '六', '日']) grid.append(el('div', 'weekday-heading', '周' + name));
   for (const date of range.dates) {
     const section = el('section', 'calendar-day' + (date === today ? ' is-today' : '') + (date === selected ? ' is-selected' : '') + (view === 'month' && date.slice(0, 7) !== anchor.slice(0, 7) ? ' outside-month' : ''));
     section.dataset.date = date;
+    section.addEventListener('click', event => {
+      if (event.target.closest('button, input, select, textarea, a, [role="checkbox"], .calendar-entry')) return;
+      selectDate(date);
+    });
     const heading = el('div', 'calendar-day-heading');
     const title = view === 'week' ? new Intl.DateTimeFormat('zh-CN', { weekday: 'short' }).format(new Date(date + 'T12:00:00')) + ' ' + Number(date.slice(5, 7)) + '/' + Number(date.slice(8)) : String(Number(date.slice(8)));
     const choose = button(date + '，选择日期', 'calendar-date', () => selectDate(date));
@@ -38,8 +60,8 @@ export function calendarGrid({ view, range, anchor, selected, today, tasks, prev
     if (date === today) choose.setAttribute('aria-current', 'date');
     const add = button('在 ' + date + ' 添加任务', 'icon-button small calendar-add', () => addAt(date), 'plus');
     heading.append(choose, add); section.append(heading);
-    const actual = tasks.filter(task => task.dueDate === date);
-    const planned = previews.filter(item => item.date === date);
+    const actual = taskDays.get(date) ?? [];
+    const planned = previewDays.get(date) ?? [];
     const entries = [...actual.map(task => ({ kind: 'task', task })), ...planned];
     const limit = view === 'month' ? 3 : (limits.get(date) ?? 50);
     for (const entry of entries.slice(0, limit)) {

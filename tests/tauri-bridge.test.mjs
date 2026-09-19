@@ -28,3 +28,21 @@ test('early tray actions survive bridge setup and backend errors stay usable', a
   assert.deepEqual(actions,['new-task']);
   await assert.rejects(api.addTask({title:'x'}),/保存失败/);
 });
+
+test('a commit is delivered once regardless of event and reply order', async t => {
+  const events = new Map(); let resolve;
+  globalThis.window = { __TAURI__: { core: { invoke: () => new Promise(done => { resolve = done; }) }, event: { listen: async (name, callback) => { events.set(name, callback); } } } };
+  t.after(() => delete globalThis.window);
+  const api = await createTauriBridge(), changes = [];
+  api.onStateChange(state => changes.push(state));
+  for (const [revision, eventFirst] of [[1, true], [2, false]]) {
+    const payload = { revision, state: { tasks: [revision] } };
+    const operation = api.addTask({ title: 'x' });
+    if (eventFirst) events.get('state:changed')({ payload });
+    resolve(structuredClone(payload));
+    const response = await operation;
+    if (!eventFirst) events.get('state:changed')({ payload });
+    assert.equal(changes.length, revision);
+    assert.equal(response.state, changes.at(-1));
+  }
+});

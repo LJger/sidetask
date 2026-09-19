@@ -108,3 +108,23 @@ test('handle opacity validates numeric bounds and defaults older settings', () =
   delete old.settings.collapsedHandleOpacity;
   assert.equal(validateState(old).settings.collapsedHandleOpacity, 0.8);
 });
+
+test('panel opacity and completed visibility migrate and validate independently', () => {
+  for (const panelOpacity of [0.2, 0.65, 1]) assert.equal(validateSettings({ panelOpacity }).panelOpacity, panelOpacity);
+  for (const panelOpacity of [-1, 0, 0.19, 1.01, NaN, Infinity, '0.5', null]) assert.throws(() => validateSettings({ panelOpacity }), /透明度/);
+  assert.throws(() => validateSettings({ showCompleted: 'true' }), /设置值/);
+  const old = emptyState();
+  delete old.settings.panelOpacity; delete old.settings.showCompleted;
+  const restored = validateState(old);
+  assert.equal(restored.settings.panelOpacity, 1);
+  assert.equal(restored.settings.showCompleted, true);
+});
+
+test('mixed task selection retains completed tasks after pending and preserves filters', () => {
+  const tasks = ['pending', 'done', 'other'].map(id => ({ ...createTask({ title: id, dueDate: '2026-09-19' }, '2026-09-19T00:00:00Z', id), completedAt: id === 'done' ? '2026-09-19T01:00:00Z' : null }));
+  assert.deepEqual(selectTasks(tasks, { view: 'all', includeCompleted: true, search: 'done' }).map(task => task.id), ['done']);
+  assert.equal(selectTasks(tasks, { view: 'all', includeCompleted: true }).at(-1).id, 'done');
+  assert.equal(selectTasks(tasks, { view: 'all' }).length, 2);
+  assert.equal(selectTasks(tasks, { view: 'completed', includeCompleted: true }).length, 1);
+  assert.equal(groupTasks(selectTasks(tasks, { view: 'all', includeCompleted: true }), 'all').at(-1).label, '已完成');
+});

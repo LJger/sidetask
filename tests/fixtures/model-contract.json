@@ -21,6 +21,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -52,6 +54,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -102,6 +106,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -139,6 +145,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -213,6 +221,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -284,6 +294,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -402,6 +414,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -473,6 +487,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -590,6 +606,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -694,6 +712,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -1042,6 +1062,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -1113,6 +1135,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -1230,6 +1254,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -1334,6 +1360,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -1585,6 +1613,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -1722,6 +1752,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -2006,6 +2038,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -2139,6 +2173,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -2316,6 +2352,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -2449,6 +2487,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -2597,6 +2637,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -2701,6 +2743,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -2845,6 +2889,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -2943,6 +2989,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -3057,6 +3105,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -3145,6 +3195,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -3276,6 +3328,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -3391,6 +3445,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -3550,6 +3606,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -3688,6 +3746,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -3862,6 +3922,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -4023,6 +4085,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -4295,6 +4359,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -4479,6 +4545,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -4699,6 +4767,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -4906,6 +4976,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -5224,6 +5296,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -5454,6 +5528,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -5720,6 +5796,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -5973,6 +6051,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -6090,6 +6170,8 @@
         "dockSide": "left",
         "themePreset": "graphite",
         "collapsedHandleOpacity": 0.35,
+        "panelOpacity": 0.6,
+        "showCompleted": false,
         "calendarView": "month",
         "autoCollapse": false
       }
@@ -6336,6 +6418,8 @@
         "launchAtLogin": false,
         "themePreset": "pine",
         "collapsedHandleOpacity": 0.8,
+        "panelOpacity": 1,
+        "showCompleted": true,
         "calendarView": "day",
         "windowPlacement": {
           "mode": "docked",
@@ -6589,6 +6673,8 @@
         "launchAtLogin": false,
         "themePreset": "graphite",
         "collapsedHandleOpacity": 0.35,
+        "panelOpacity": 0.6,
+        "showCompleted": false,
         "calendarView": "month",
         "windowPlacement": {
           "mode": "docked",
@@ -6610,6 +6696,8 @@
         "launchAtLogin": false,
         "themePreset": "graphite",
         "collapsedHandleOpacity": 0.35,
+        "panelOpacity": 0.6,
+        "showCompleted": false,
         "calendarView": "month",
         "windowPlacement": {
           "mode": "docked",
@@ -6665,6 +6753,8 @@
           "launchAtLogin": false,
           "themePreset": "sand",
           "collapsedHandleOpacity": 0.8,
+          "panelOpacity": 1,
+          "showCompleted": true,
           "calendarView": "day",
           "windowPlacement": {
             "mode": "docked",
@@ -6921,6 +7011,8 @@
         "launchAtLogin": false,
         "themePreset": "graphite",
         "collapsedHandleOpacity": 0.35,
+        "panelOpacity": 0.6,
+        "showCompleted": false,
         "calendarView": "month",
         "windowPlacement": {
           "mode": "docked",
@@ -7199,6 +7291,8 @@
         "launchAtLogin": false,
         "themePreset": "graphite",
         "collapsedHandleOpacity": 0.35,
+        "panelOpacity": 0.6,
+        "showCompleted": false,
         "calendarView": "month",
         "windowPlacement": {
           "mode": "docked",
@@ -7260,6 +7354,8 @@
           "launchAtLogin": false,
           "themePreset": "sand",
           "collapsedHandleOpacity": 0.8,
+          "panelOpacity": 1,
+          "showCompleted": true,
           "calendarView": "day",
           "windowPlacement": {
             "mode": "docked",
@@ -7541,6 +7637,8 @@
         "launchAtLogin": false,
         "themePreset": "graphite",
         "collapsedHandleOpacity": 0.35,
+        "panelOpacity": 0.6,
+        "showCompleted": false,
         "calendarView": "month",
         "windowPlacement": {
           "mode": "docked",
@@ -7819,6 +7917,8 @@
         "launchAtLogin": false,
         "themePreset": "graphite",
         "collapsedHandleOpacity": 0.35,
+        "panelOpacity": 0.6,
+        "showCompleted": false,
         "calendarView": "month",
         "windowPlacement": {
           "mode": "docked",
@@ -8118,6 +8218,8 @@
         "launchAtLogin": false,
         "themePreset": "graphite",
         "collapsedHandleOpacity": 0.35,
+        "panelOpacity": 0.6,
+        "showCompleted": false,
         "calendarView": "month",
         "windowPlacement": {
           "mode": "docked",
@@ -8417,6 +8519,8 @@
         "launchAtLogin": false,
         "themePreset": "graphite",
         "collapsedHandleOpacity": 0.35,
+        "panelOpacity": 0.6,
+        "showCompleted": false,
         "calendarView": "month",
         "windowPlacement": {
           "mode": "docked",
@@ -8752,6 +8856,8 @@
         "launchAtLogin": false,
         "themePreset": "graphite",
         "collapsedHandleOpacity": 0.35,
+        "panelOpacity": 0.6,
+        "showCompleted": false,
         "calendarView": "month",
         "windowPlacement": {
           "mode": "docked",
@@ -9051,6 +9157,8 @@
         "launchAtLogin": false,
         "themePreset": "graphite",
         "collapsedHandleOpacity": 0.35,
+        "panelOpacity": 0.6,
+        "showCompleted": false,
         "calendarView": "month",
         "windowPlacement": {
           "mode": "docked",
@@ -9388,6 +9496,8 @@
         "launchAtLogin": false,
         "themePreset": "graphite",
         "collapsedHandleOpacity": 0.35,
+        "panelOpacity": 0.6,
+        "showCompleted": false,
         "calendarView": "month",
         "windowPlacement": {
           "mode": "docked",
@@ -9687,6 +9797,8 @@
         "launchAtLogin": false,
         "themePreset": "graphite",
         "collapsedHandleOpacity": 0.35,
+        "panelOpacity": 0.6,
+        "showCompleted": false,
         "calendarView": "month",
         "windowPlacement": {
           "mode": "docked",

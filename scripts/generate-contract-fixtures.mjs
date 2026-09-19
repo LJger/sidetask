@@ -35,7 +35,7 @@ for (const frequency of ['daily', 'weekly', 'weekdays']) {
   const item = run('task:add', { input: { title: frequency, dueDate: '2026-09-11', recurrence: { frequency, until: '2026-09-20' } } }).result;
   run('task:update', { id: item.id, patch: { completed: true } });
 }
-run('settings:set', { patch: { dockSide: 'left', themePreset: 'graphite', collapsedHandleOpacity: 0.35, calendarView: 'month', autoCollapse: false } });
+run('settings:set', { patch: { dockSide: 'left', themePreset: 'graphite', collapsedHandleOpacity: 0.35, panelOpacity: 0.6, showCompleted: false, calendarView: 'month', autoCollapse: false } });
 const imported = emptyState();
 imported.categories = [{ id: 'remote', name: '个人', color: '#32654d' }];
 imported.tasks = [createTask({ title: '导入任务', categoryId: 'remote' }, now, 'imported')];

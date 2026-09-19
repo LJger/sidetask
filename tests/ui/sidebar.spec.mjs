@@ -312,7 +312,7 @@ test('subtasks, recurrence, time and reminders save together and completion undo
   await expect(page.locator('.subtask-toggle')).toHaveText('1/2');
   await page.getByRole('checkbox', { name: '完成：每日整理', exact: true }).click();
   await expect(page.locator('#count-completed')).toHaveText('1');
-  await expect(page.locator('.task-row')).toHaveCount(0);
+  await expect(page.locator('.task-row.is-completed')).toHaveCount(1);
   let data = await saved(page);
   expect(data.tasks).toHaveLength(2);
   const next = data.tasks.find(task => !task.completedAt);
@@ -432,7 +432,7 @@ test('captures a representative task list, details and classification manager', 
       makeTask('preview-8', '整理书桌', { completedAt: '2026-09-07T01:30:00.000Z', categoryId: 'life' }),
     ],
   });
-  await expect(page.locator('.task-row')).toHaveCount(5);
+  await expect(page.locator('.task-row')).toHaveCount(6);
   await page.locator('#shell').screenshot({ path: test.info().outputPath('preview.png'), animations: 'disabled' });
   await page.getByRole('button', { name: '编辑：整理新项目的灵感与参考', exact: true }).click();
   await page.locator('#shell').screenshot({ path: test.info().outputPath('details.png'), animations: 'disabled' });

@@ -68,9 +68,10 @@ fn commands_match_the_existing_browser_model() {
             },
         )
         .unwrap();
+        // JavaScript has one numeric type; JSON 1 and 1.0 are equivalent.
         assert_eq!(
             json!(state),
-            case["after"],
+            json!(validate_state(&case["after"]).unwrap()),
             "state after {}",
             case["command"]
         );
@@ -635,4 +636,54 @@ fn floating_docking_starts_immediately_and_respects_reduced_motion() {
     window.ready(window.transition_id);
     window.finish(window.transition_id);
     assert_eq!(window.placement, saved);
+}
+
+#[test]
+fn panel_settings_migrate_validate_persist_and_survive_import() {
+    let mut old = serde_json::to_value(State::default()).unwrap();
+    old["settings"]
+        .as_object_mut()
+        .unwrap()
+        .remove("panelOpacity");
+    old["settings"]
+        .as_object_mut()
+        .unwrap()
+        .remove("showCompleted");
+    let upgraded = validate_state(&old).unwrap();
+    assert_eq!(upgraded.settings.panel_opacity, 1.0);
+    assert!(upgraded.settings.show_completed);
+    for value in [
+        json!(0),
+        json!(0.19),
+        json!(1.01),
+        json!("0.5"),
+        Value::Null,
+    ] {
+        assert!(validate_settings(&json!({"panelOpacity":value}), &Settings::default()).is_err());
+    }
+    assert!(validate_settings(&json!({"showCompleted":"yes"}), &Settings::default()).is_err());
+    let temp = tempfile::tempdir().unwrap();
+    let mut store = TaskStore::open(temp.path()).unwrap();
+    store
+        .transact(
+            "settings:set",
+            json!({"patch":{"panelOpacity":0.35,"showCompleted":false}}),
+            now(),
+        )
+        .unwrap();
+    store
+        .transact("data:import", json!({"raw":State::default()}), now())
+        .unwrap();
+    let reopened = TaskStore::open(temp.path()).unwrap();
+    assert_eq!(reopened.snapshot().settings.panel_opacity, 0.35);
+    assert!(!reopened.snapshot().settings.show_completed);
+}
+
+#[test]
+fn redundant_display_notifications_do_not_cancel_window_motion() {
+    let mut window = controller(false);
+    window.expand(Instant::now());
+    let before = window.snapshot();
+    window.update_monitors(window.monitors.clone());
+    assert_eq!(window.snapshot(), before);
 }

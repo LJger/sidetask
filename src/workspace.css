@@ -1,4 +1,11 @@
 :root { font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",system-ui,sans-serif; }
+:root { --panel-opacity:1; }
+/* Keep the saved opacity outside the panel's open/close animation. Top-layer
+   dialogs and popovers render independently of their ancestors' opacity. */
+.drawer, .app-dialog, [popover]:popover-open { opacity:var(--panel-opacity); }
+.completed-filter { display:flex; align-items:center; gap:4px; margin-left:auto; font-size:11px; white-space:nowrap; cursor:pointer; }
+.completed-filter input { accent-color:var(--accent); }
+.backlog-shortcuts { flex-wrap:wrap; }
 @property --handle-open { syntax: "<number>"; inherits: false; initial-value: 1; }
 .drawer,body[data-dock] .drawer { width:var(--panel-width); height:var(--panel-height); top:0; left:0; right:auto; padding:0; transform:translate(0,0); }
 .panel { position:absolute; inset:3px 6px 3px 40px; height:auto; border-radius:16px; background:var(--canvas); border-color:var(--line); container-type:inline-size; }
@@ -49,7 +56,7 @@ body[data-dragging="true"] [data-drag] { cursor:grabbing; }
 .search-options { display:flex; align-items:center; gap:10px; padding:0 2px 8px; font-size:11px; }
 .search-options select { border:1px solid var(--control-border); border-radius:6px; padding:4px; background:var(--surface); }
 .search-options label { display:flex; align-items:center; gap:3px; }
-.backlog-shortcuts { display:flex; align-items:center; gap:16px; padding:5px 16px 0; flex-shrink:0; }
+.backlog-shortcuts { display:flex; align-items:center; gap:12px; padding:3px 16px 0; flex-shrink:0; }
 .backlog-shortcuts .text-button { font-size:11px; gap:6px; }
 #backlog-overdue { color:var(--danger); }
 #projection-status { margin-left:auto; font-size:10px; color:var(--secondary); }
@@ -102,7 +109,9 @@ body[data-wide="true"] .view-tabs { max-width:240px; }
 .calendar-day.is-selected { box-shadow:inset 0 0 0 2px var(--accent); }
 .calendar-day.is-today .calendar-date { color:var(--accent); font-weight:700; }
 .calendar-day-heading { display:flex; align-items:center; justify-content:space-between; gap:2px; margin-bottom:4px; }
-.calendar-date { background:transparent; font-size:12px; min-height:30px; padding:3px 5px; text-align:left; font-variant-numeric:tabular-nums; }
+.calendar-date { flex:1; min-width:0; background:transparent; font-size:12px; min-height:34px; padding:3px 5px; text-align:left; font-variant-numeric:tabular-nums; }
+.calendar-day { cursor:pointer; }
+.calendar-date:hover { background:var(--hover); border-radius:5px; }
 .calendar-add { opacity:0; }
 .calendar-day:hover .calendar-add,.calendar-day:focus-within .calendar-add { opacity:1; }
 .weekday-heading { text-align:left; padding:8px 10px; font-size:12px; color:var(--secondary); position:sticky; top:0; z-index:2; background:var(--canvas); }

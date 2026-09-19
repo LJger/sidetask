@@ -1,7 +1,10 @@
 use crate::platform;
 use chrono::{Local, Utc};
 use serde_json::{json, Value};
-use sidetask_core::{domain::*, geometry::*, store::TaskStore, window::WindowController, Result};
+use sidetask_core::{
+    diagnostics::Diagnostics, domain::*, geometry::*, retry::RetryGate, store::TaskStore,
+    window::WindowController, Result,
+};
 use std::{
     fs,
     io::Write,
@@ -23,6 +26,11 @@ pub enum Op {
         command: String,
         args: Value,
         reply: Reply,
+    },
+    NativeApplied {
+        update: platform::NativeUpdate,
+        result: Result<bool>,
+        elapsed_ms: u64,
     },
     Focus(bool),
     DragBegin,
@@ -96,6 +104,18 @@ struct Runtime {
     applied_bounds: Option<Rect>,
     applied_region: Option<Option<Rect>>,
     applied_pin: Option<bool>,
+    native_inflight: Option<u64>,
+    native_sequence: u64,
+    pending_show: Option<bool>,
+    pending_replies: Vec<(Reply, Result<Value>)>,
+    native_error: Option<String>,
+    hidden_after_failure: bool,
+    pending_count: usize,
+    native_retry: RetryGate,
+    placement_retry: RetryGate,
+    tray_retry: RetryGate,
+    last_window_error: Option<(String, Instant)>,
+    diagnostics: Diagnostics,
     tray_state: Option<(bool, bool, usize)>,
     notifications: Option<platform::Notifications>,
     notification_error: Option<String>,
@@ -121,10 +141,23 @@ impl Runtime {
     }
 
     fn window_error(&mut self, error: String) {
+        let now = Instant::now();
+        self.diagnostics
+            .record("window-error", json!({"message": error}));
+        if self
+            .last_window_error
+            .as_ref()
+            .is_some_and(|(previous, at)| {
+                previous == &error && now.duration_since(*at) < Duration::from_secs(30)
+            })
+        {
+            return;
+        }
+        self.last_window_error = Some((error.clone(), now));
         self.action(json!({ "type": "window-error", "message": error }));
     }
 
-    fn emit_state(&mut self) {
+    fn emit_state(&mut self, tasks_changed: bool) {
         self.revision += 1;
         if self.frontend_ready {
             let _ = self.window.emit(
@@ -132,15 +165,24 @@ impl Runtime {
                 json!({"state": self.store.snapshot(), "revision": self.revision}),
             );
         }
-        if let Some(notifications) = &mut self.notifications {
-            notifications.reconcile(&self.store.snapshot().tasks);
+        if tasks_changed {
+            self.pending_count = self
+                .store
+                .snapshot()
+                .tasks
+                .iter()
+                .filter(|task| task.completed_at.is_none())
+                .count();
+            if let Some(notifications) = &mut self.notifications {
+                notifications.reconcile(&self.store.snapshot().tasks);
+            }
+            self.next_reminder = Instant::now();
         }
-        self.next_reminder = Instant::now();
     }
 
     fn commit(&mut self, command: &str, args: Value) -> Result<Value> {
         let response = self.store.transact(command, args, Utc::now())?;
-        self.emit_state();
+        self.emit_state(command != "settings:set");
         Ok(response)
     }
 
@@ -158,11 +200,10 @@ impl Runtime {
         if action.is_some() {
             self.pending_action = action;
         }
-        self.windows.focused = true;
         self.windows.expand(Instant::now());
         if self.frontend_ready {
-            let _ = self.window.show();
-            let _ = self.window.set_focus();
+            self.pending_show = Some(true);
+            self.native_retry.reset();
         }
     }
 
@@ -175,7 +216,10 @@ impl Runtime {
     }
 
     fn toggle(&mut self, cursor: bool) {
-        if !self.windows.expanded || self.windows.snapshot()["docking"] == true {
+        if self.hidden_after_failure
+            || !self.windows.expanded
+            || self.windows.snapshot()["docking"] == true
+        {
             self.expand(cursor, None);
         } else {
             self.collapse();
@@ -185,6 +229,9 @@ impl Runtime {
     fn save_settings(&mut self, patch: Value) -> Result<Value> {
         let previous = self.store.snapshot().settings.clone();
         let settings = validate_settings(&patch, &previous)?;
+        if settings == previous {
+            return Ok(json!({"state": self.store.snapshot(), "result": settings}));
+        }
         let startup_changed = settings.launch_at_login != previous.launch_at_login;
         if startup_changed {
             if !self.can_launch() {
@@ -210,15 +257,13 @@ impl Runtime {
     }
 
     fn refresh_tray(&mut self) -> Result<()> {
-        let pending = self
-            .store
-            .snapshot()
-            .tasks
-            .iter()
-            .filter(|task| task.completed_at.is_none())
-            .count();
+        let pending = self.pending_count;
         let pin = self.store.snapshot().settings.always_on_top;
-        let state = (self.windows.expanded, pin, pending);
+        let state = (
+            self.windows.expanded && !self.hidden_after_failure,
+            pin,
+            pending,
+        );
         if self.tray_state == Some(state) {
             return Ok(());
         }
@@ -263,28 +308,55 @@ impl Runtime {
     }
 
     fn sync(&mut self) {
+        let now = Instant::now();
         let bounds = self.windows.native_bounds();
-        if !self.windows.dragging && self.applied_bounds != Some(bounds) {
-            if let Err(error) = platform::set_bounds(&self.window, bounds) {
-                self.window_error(format!("无法调整窗口位置：{error}"));
-            } else {
-                self.applied_bounds = Some(bounds);
-            }
-        }
         let region = self.windows.native_region();
-        if self.applied_region != Some(region) {
-            if let Err(error) = platform::set_region(&self.window, region) {
-                self.window_error(error);
-            } else {
-                self.applied_region = Some(region);
+        let pin = !self.windows.expanded || self.store.snapshot().settings.always_on_top;
+        if self.native_inflight.is_none() && self.native_retry.ready(now) {
+            let moved = !self.windows.dragging && self.applied_bounds != Some(bounds);
+            let clipped = self.applied_region != Some(region);
+            let pinned = self.applied_pin != Some(pin);
+            if moved || clipped || pinned || self.pending_show.is_some() {
+                self.native_sequence += 1;
+                let show = self.pending_show.take();
+                let update = platform::NativeUpdate {
+                    id: self.native_sequence,
+                    bounds: moved.then_some(bounds),
+                    region: clipped.then_some(region),
+                    pin: pinned.then_some(pin),
+                    show,
+                };
+                match platform::queue_update(&self.window, update, self.sender.clone()) {
+                    Ok(()) => self.native_inflight = Some(self.native_sequence),
+                    Err(error) => {
+                        // A rejected queue operation never reaches NativeApplied.
+                        // Keep even a show-only request eligible for retry.
+                        self.pending_show = show;
+                        self.native_error = Some(error.clone());
+                        self.native_retry.failed(now);
+                        self.window_error(error);
+                    }
+                }
             }
         }
-        let pin = !self.windows.expanded || self.store.snapshot().settings.always_on_top;
-        if self.applied_pin != Some(pin) {
-            if let Err(error) = self.window.set_always_on_top(pin) {
-                self.window_error(format!("无法调整窗口置顶：{error}"));
+        if self.tray_retry.ready(now) {
+            if let Err(error) = self.refresh_tray() {
+                self.tray_retry.failed(now);
+                self.window_error(format!("无法更新托盘菜单：{error}"));
+            } else {
+                self.tray_retry.reset();
             }
-            self.applied_pin = Some(pin);
+        }
+        // Publish and resolve geometry-dependent requests only after the UI
+        // thread has applied the latest state. Never block its message loop.
+        if self.native_inflight.is_some() {
+            return;
+        }
+        if let Some(error) = &self.native_error {
+            for (reply, _) in std::mem::take(&mut self.pending_replies) {
+                let _ = reply.blocking_send(Err(error.clone()));
+            }
+            return;
         }
         let state = self.windows.snapshot();
         if state != self.published {
@@ -294,10 +366,15 @@ impl Runtime {
             self.published = state;
         }
         if self.windows.settled() {
-            if self.windows.placement != self.store.snapshot().settings.window_placement {
+            if self.windows.placement != self.store.snapshot().settings.window_placement
+                && self.placement_retry.ready(now)
+            {
                 let args = json!({ "patch": { "windowPlacement": self.windows.placement } });
                 if let Err(error) = self.commit("settings:set", args) {
+                    self.placement_retry.failed(now);
                     self.window_error(format!("窗口位置未保存：{error}"));
+                } else {
+                    self.placement_retry.reset();
                 }
             }
             if self.windows.expanded && self.frontend_ready {
@@ -306,8 +383,8 @@ impl Runtime {
                 }
             }
         }
-        if let Err(error) = self.refresh_tray() {
-            self.window_error(format!("无法更新托盘菜单：{error}"));
+        for (reply, result) in std::mem::take(&mut self.pending_replies) {
+            let _ = reply.blocking_send(result.map(|value| self.stamp(value)));
         }
     }
 
@@ -327,7 +404,7 @@ impl Runtime {
                 .transact("reminders:claim", json!({ "entries": entries }), now)
             {
                 Ok(response) => {
-                    self.emit_state();
+                    self.emit_state(true);
                     let tasks: Vec<Task> =
                         serde_json::from_value(response["result"].clone()).unwrap_or_default();
                     if !tasks.is_empty() {
@@ -526,13 +603,8 @@ impl Runtime {
             "app:ready" => {
                 self.frontend_ready = true;
                 self.published = Value::Null;
-                if self.windows.expanded {
-                    self.windows.focused = true;
-                    let _ = self.window.show();
-                    let _ = self.window.set_focus();
-                } else {
-                    platform::show_inactive(&self.window);
-                }
+                self.pending_show = Some(self.windows.expanded);
+                self.native_retry.reset();
                 self.protect();
                 for action in std::mem::take(&mut self.early_actions) {
                     self.action(action);
@@ -552,14 +624,41 @@ impl Runtime {
             Op::Request { command, args, reply } => {
                 if command == "data:export" || command == "data:import" { self.start_dialog(command == "data:export", reply); }
                 else {
+                    let geometry_settings = command == "settings:set" && (args["patch"].get("windowPlacement").is_some() || args["patch"].get("dockSide").is_some());
                     let result = self.request(&command, args);
-                    // Publish geometry before resolving the IPC promise. A
-                    // caller can immediately click after changing displays.
-                    self.sync();
-                    let _ = reply.blocking_send(result.map(|value| self.stamp(value)));
+                    // Geometry requests resolve only after the owning thread
+                    // applies them; data commits retain their durable result.
+                    if geometry_settings || command.starts_with("window:") || command == "app:ready" || command == "state:get" {
+                        self.pending_replies.push((reply, result));
+                    } else { let _ = reply.blocking_send(result.map(|value| self.stamp(value))); }
                 }
             }
-            Op::Focus(focused) => self.windows.focus(focused, Instant::now()),
+            Op::NativeApplied { update, result, elapsed_ms } => {
+                if self.native_inflight != Some(update.id) { return; }
+                self.native_inflight = None;
+                self.diagnostics.record("native-update", json!({"id": update.id, "elapsedMs": elapsed_ms, "success": result.is_ok(), "bounds": update.bounds, "region": update.region, "show": update.show}));
+                match result {
+                    Ok(focused) => {
+                        if let Some(bounds) = update.bounds { self.applied_bounds = Some(platform::bounds(&self.window).unwrap_or(bounds)); }
+                        if let Some(region) = update.region { self.applied_region = Some(region); }
+                        if let Some(pin) = update.pin { self.applied_pin = Some(pin); }
+                        if update.show.is_some() { self.windows.focused = focused; self.hidden_after_failure = false; }
+                        self.native_retry.reset();
+                        self.native_error = None;
+                    }
+                    Err(error) => {
+                        self.applied_bounds = None; self.applied_region = None; self.applied_pin = None;
+                        self.native_error = Some(error.clone());
+                        self.hidden_after_failure = true;
+                        self.native_retry.failed(Instant::now());
+                        self.window_error(format!("窗口更新失败，已隐藏面板；请从托盘重新展开：{error}"));
+                    }
+                }
+            }
+            Op::Focus(focused) => {
+                self.diagnostics.record("focus", json!({"focused": focused}));
+                self.windows.focus(focused, Instant::now());
+            },
             Op::DragBegin => { let _ = self.windows.start_drag(); }
             Op::Moved(bounds) => {
                 // Windows can resize a window again while processing a DPI
@@ -577,7 +676,9 @@ impl Runtime {
                         self.windows.monitors = monitors;
                         self.windows.monitor = self.windows.monitor.min(self.windows.monitors.len() - 1);
                         if let Ok(bounds) = platform::bounds(&self.window) { self.windows.moved_native(bounds); }
-                    } else { self.windows.update_monitors(monitors); self.applied_bounds = None; }
+                    } else if self.windows.monitors != monitors {
+                        self.windows.update_monitors(monitors); self.applied_bounds = None; self.applied_region = None;
+                    }
                 }
             }
             Op::Resume => { self.catch_up = true; self.next_reminder = Instant::now(); }
@@ -619,15 +720,42 @@ impl Runtime {
         self.reminders();
         loop {
             let now = Instant::now();
-            let wait = if self.windows.needs_tick() {
+            let mut wait = if self.windows.needs_tick() {
                 Duration::from_millis(16)
             } else {
                 self.next_reminder
                     .saturating_duration_since(now)
                     .min(Duration::from_secs(30))
             };
+            for retry in [&self.native_retry, &self.placement_retry, &self.tray_retry] {
+                if let Some(delay) = retry.remaining(now) {
+                    wait = wait.min(delay);
+                }
+            }
             match receiver.recv_timeout(wait) {
-                Ok(op) => self.handle(op),
+                Ok(op) => {
+                    let mut pending = op;
+                    let mut received = 1;
+                    let mut coalesced = 0;
+                    for next in receiver.try_iter().take(63) {
+                        received += 1;
+                        if matches!(
+                            (&pending, &next),
+                            (Op::Moved(_), Op::Moved(_))
+                                | (Op::DisplaysChanged, Op::DisplaysChanged)
+                        ) {
+                            coalesced += 1;
+                        } else {
+                            self.handle(pending);
+                        }
+                        pending = next;
+                    }
+                    self.handle(pending);
+                    self.diagnostics.record(
+                        "events",
+                        json!({"received": received, "coalesced": coalesced}),
+                    );
+                }
                 Err(mpsc::RecvTimeoutError::Disconnected) => break,
                 Err(mpsc::RecvTimeoutError::Timeout) => {}
             }
@@ -705,7 +833,9 @@ pub fn run() {
             );
             windows.auto_collapse = settings.auto_collapse;
             windows.protected = true;
-            let size = windows.native_bounds().divided(windows.current_monitor().scale);
+            let size = windows
+                .native_bounds()
+                .divided(windows.current_monitor().scale);
             let mut builder =
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::App("src/index.html".into()))
                     .title("侧记 SideTask")
@@ -719,6 +849,7 @@ pub fn run() {
                     .minimizable(false)
                     .skip_taskbar(true)
                     .visible(false)
+                    .focused(false)
                     .disable_drag_drop_handler()
                     .data_directory(directory.join("webview"))
                     .on_navigation(allowed_url);
@@ -762,6 +893,12 @@ pub fn run() {
                     }
                 })
                 .build(app)?;
+            let pending_count = store
+                .snapshot()
+                .tasks
+                .iter()
+                .filter(|task| task.completed_at.is_none())
+                .count();
             let runtime = Runtime {
                 app: app.handle().clone(),
                 window,
@@ -778,6 +915,18 @@ pub fn run() {
                 applied_bounds: None,
                 applied_region: None,
                 applied_pin: None,
+                native_inflight: None,
+                native_sequence: 0,
+                pending_show: None,
+                pending_replies: vec![],
+                native_error: None,
+                hidden_after_failure: false,
+                pending_count,
+                native_retry: RetryGate::default(),
+                placement_retry: RetryGate::default(),
+                tray_retry: RetryGate::default(),
+                last_window_error: None,
+                diagnostics: Diagnostics::new(&directory),
                 tray_state: None,
                 notifications: None,
                 notification_error: None,

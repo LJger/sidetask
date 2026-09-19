@@ -81,7 +81,7 @@
             <div class="search-box" id="search-box" hidden>
               <svg class="icon"><use href="#i-search"/></svg><input id="search-input" type="search" placeholder="搜索任务、备注、子任务…" aria-label="搜索当前视图" maxlength="160" autocomplete="off"><button class="icon-button small" id="search-close" aria-label="关闭搜索"><svg class="icon"><use href="#i-close"/></svg></button>
             </div>
-            <div id="search-options" class="search-options" hidden><select id="search-scope" aria-label="搜索范围"><option value="view">当前视图</option><option value="all">全部待办</option></select><label><input type="checkbox" id="search-completed">包含已完成</label></div>
+            <div id="search-options" class="search-options" hidden><select id="search-scope" aria-label="搜索范围"><option value="view">当前视图</option><option value="all">全部任务</option></select></div>
             <form class="composer" id="task-form">
               <div class="composer-input-row"><svg class="icon composer-plus"><use href="#i-plus"/></svg><input id="task-title" type="text" placeholder="添加任务，Enter 确认" aria-label="新任务名称" maxlength="160" autocomplete="off" required><button class="add-button" id="add-task" type="submit" aria-label="添加任务" title="添加任务" disabled><svg class="icon"><use href="#i-right"/></svg></button></div>
               <div class="composer-options">
@@ -101,7 +101,7 @@
             </form>
             <div class="active-filter" id="active-filter" hidden><span id="active-filter-label"></span><button id="filter-clear" type="button">清除筛选</button></div>
           </div>
-          <div class="backlog-shortcuts"><button id="backlog-overdue" class="text-button">逾期 <span id="count-overdue">0</span></button><button id="backlog-unscheduled" class="text-button">未安排 <span id="count-unscheduled">0</span></button><span id="projection-status" role="status"></span></div>
+          <div class="backlog-shortcuts"><button id="backlog-overdue" class="text-button">逾期 <span id="count-overdue">0</span></button><button id="backlog-unscheduled" class="text-button">未安排 <span id="count-unscheduled">0</span></button><label class="completed-filter"><input id="show-completed" type="checkbox" checked>显示已完成</label><span id="projection-status" role="status"></span></div>
           <div class="task-scroll" id="task-scroll">
             <div class="task-list" id="task-list" role="tabpanel" aria-labelledby="tab-day" tabindex="0"></div>
             <div class="empty-state" id="empty-state" hidden><span class="empty-symbol"><svg class="icon"><use href="#i-check"/></svg></span><h2 id="empty-title">还没有任务</h2><p id="empty-copy">写下下一件要做的事。</p><button class="text-button" id="empty-action">添加任务<svg class="icon"><use href="#i-plus"/></svg></button></div>
@@ -156,6 +156,11 @@
   <dialog class="app-dialog settings-dialog" id="settings-dialog" aria-labelledby="settings-heading">
     <div class="dialog-heading"><div><h2 id="settings-heading">设置</h2></div><button class="icon-button" data-close="settings-dialog" aria-label="关闭设置"><svg class="icon"><use href="#i-close"/></svg></button></div>
     <section class="theme-settings"><h3>外观</h3><div id="theme-presets" class="theme-presets"></div>
+      <div class="setting-row opacity-setting">
+        <div class="opacity-heading"><label for="setting-panel-transparency">面板透明度</label><output id="panel-transparency-value" for="setting-panel-transparency">0%</output></div>
+        <input id="setting-panel-transparency" type="range" min="0" max="80" step="1" value="0" aria-describedby="panel-transparency-help">
+        <p id="panel-transparency-help">0% 为不透明；面板背景、文字和按钮一起变淡</p>
+      </div>
       <div class="setting-row opacity-setting">
         <div class="opacity-heading"><label for="setting-handle-transparency">收起图标透明度</label><output id="handle-transparency-value" for="setting-handle-transparency">20%</output></div>
         <input id="setting-handle-transparency" type="range" min="0" max="80" step="1" value="20" aria-describedby="handle-transparency-help">

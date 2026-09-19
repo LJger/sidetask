@@ -17,8 +17,8 @@ use windows::{
     Win32::{
         Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM},
         Graphics::Gdi::{
-            CreateRectRgn, DeleteObject, EnumDisplayMonitors, GetMonitorInfoW, SetWindowRgn,
-            HDC, HGDIOBJ, HMONITOR, MONITORINFO, MONITORINFOEXW,
+            CreateRectRgn, DeleteObject, EnumDisplayMonitors, GetMonitorInfoW, SetWindowRgn, HDC,
+            HGDIOBJ, HMONITOR, MONITORINFO, MONITORINFOEXW,
         },
         System::WinRT::{RoInitialize, RO_INIT_MULTITHREADED},
         UI::{
@@ -37,6 +37,86 @@ use windows::{
 use winreg::{enums::HKEY_CURRENT_USER, RegKey};
 
 pub const APP_ID: &str = "com.sidetask.desktop";
+
+#[derive(Clone, Debug)]
+pub struct NativeUpdate {
+    pub id: u64,
+    pub bounds: Option<Rect>,
+    pub region: Option<Option<Rect>>,
+    pub pin: Option<bool>,
+    // None: keep visibility; false: show inactive; true: request foreground once.
+    pub show: Option<bool>,
+}
+
+pub fn queue_update(
+    window: &WebviewWindow,
+    update: NativeUpdate,
+    sender: Sender<Op>,
+) -> Result<()> {
+    let target = window.clone();
+    window
+        .run_on_main_thread(move || {
+            let started = std::time::Instant::now();
+            let result = apply_update(&target, &update);
+            let _ = sender.send(Op::NativeApplied {
+                update,
+                result,
+                elapsed_ms: started.elapsed().as_millis() as u64,
+            });
+        })
+        .map_err(|error| error.to_string())
+}
+
+fn apply_update(window: &WebviewWindow, update: &NativeUpdate) -> Result<bool> {
+    let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+    let operation = || -> Result<bool> {
+        // Restrict input before relocating a collapsed surface. Clear clipping
+        // only after expanded geometry has been applied, on this same UI thread.
+        if let Some(Some(region)) = update.region {
+            set_region(window, Some(region))?;
+        }
+        if let Some(bounds) = update.bounds {
+            set_bounds(window, bounds)?;
+        }
+        if update.region == Some(None) {
+            set_region(window, None)?;
+        }
+        if let Some(pin) = update.pin {
+            unsafe {
+                SetWindowPos(
+                    hwnd,
+                    Some(if pin { HWND_TOPMOST } else { HWND_NOTOPMOST }),
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER,
+                )
+                .map_err(|error| error.to_string())?;
+            }
+        }
+        if let Some(activate) = update.show {
+            unsafe {
+                let _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+                // Tao's set_focus fallback injects Alt. Never use that fallback:
+                // Windows may legitimately reject foreground activation.
+                if activate && GetForegroundWindow() != hwnd {
+                    let _ = SetForegroundWindow(hwnd);
+                }
+            }
+        }
+        Ok(unsafe { GetForegroundWindow() == hwnd })
+    };
+    let result = operation();
+    if result.is_err() {
+        // A failed region update must not leave an invisible topmost rectangle
+        // intercepting another application's input. Tray actions can retry.
+        unsafe {
+            let _ = ShowWindow(hwnd, SW_HIDE);
+        }
+    }
+    result
+}
 
 pub fn legacy_instance_running() -> bool {
     use windows::core::PWSTR;
@@ -219,14 +299,6 @@ pub fn set_region(window: &WebviewWindow, bounds: Option<Rect>) -> Result<()> {
     Ok(())
 }
 
-pub fn show_inactive(window: &WebviewWindow) {
-    if let Ok(handle) = window.hwnd() {
-        unsafe {
-            let _ = ShowWindow(handle, SW_SHOWNOACTIVATE);
-        }
-    }
-}
-
 pub fn install_hook(window: &WebviewWindow, sender: Sender<Op>) -> Result<()> {
     unsafe extern "system" fn callback(
         hwnd: HWND,
@@ -251,7 +323,10 @@ pub fn install_hook(window: &WebviewWindow, sender: Sender<Op>) -> Result<()> {
                     });
                 }
             }
-            WM_DISPLAYCHANGE | WM_SETTINGCHANGE | WM_DPICHANGED => {
+            WM_DISPLAYCHANGE | WM_DPICHANGED => {
+                let _ = sender.send(Op::DisplaysChanged);
+            }
+            WM_SETTINGCHANGE if wparam.0 == SPI_SETWORKAREA.0 as usize => {
                 let _ = sender.send(Op::DisplaysChanged);
             }
             WM_POWERBROADCAST

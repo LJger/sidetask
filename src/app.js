@@ -19,7 +19,7 @@ let selectedDate = today, anchorDate = today, projection, previewSource, dayDial
 let composerDateExplicit = false;
 let followToday = true;
 let pendingMutations = 0;
-let searchScope = 'view', includeCompleted = false;
+let searchScope = 'view';
 const columnLimits = new Map();
 let composer = { dueDate: today, categoryId: null, tagIds: [], priority: 'normal' };
 let filters = { categoryId: undefined, tagIds: [], search: '', sort: 'priority', taskIds: undefined };
@@ -38,7 +38,20 @@ let pendingFocus = false;
 const earlyActions = [];
 const taskLocks = new Set();
 const openSubtasks = new Set();
-const getTask = id => state.tasks.find(task => task.id === id);
+let taskIndex = new Map();
+let dataSignature = '';
+const getTask = id => taskIndex.get(id);
+function applyState(next) {
+  if (next === state) return;
+  const signature = JSON.stringify([next.tasks, next.categories, next.tags]);
+  const changed = signature !== dataSignature;
+  const statusChanged = next.settings.showCompleted !== state.settings.showCompleted;
+  state = next;
+  dataSignature = signature;
+  if (changed) taskIndex = new Map(state.tasks.map(task => [task.id, task]));
+  if (changed || statusChanged) render();
+  else renderSettings();
+}
 const selectionOptions = () => ({ ...filters, today, view, categories: state.categories, tags: state.tags });
 
 function saveStatus(status) {
@@ -61,7 +74,7 @@ async function mutate(operation, target) {
   saveStatus('saving');
   try {
     const response = await operation();
-    if (response.state) { state = response.state; render(); }
+    if (response.state) applyState(response.state);
     saveStatus('saved');
     return response;
   } catch (error) { reportError(error, target); throw error; }
@@ -117,8 +130,12 @@ function setView(next) {
 }
 function chooseCalendarDate(date) {
   followToday = false;
+  const dateFocused = document.activeElement?.classList.contains('calendar-date');
+  const scroll = { top: $('task-scroll').scrollTop, left: $('task-scroll').scrollLeft };
   selectedDate = date;
   syncComposerDate(); render();
+  $('task-scroll').scrollTo(scroll);
+  if (dateFocused) $('task-list').querySelector('[data-date="' + date + '"] .calendar-date')?.focus({ preventScroll: true });
 }
 function resetComposer() {
   composerDateExplicit = false;
@@ -127,15 +144,15 @@ function resetComposer() {
 }
 function matchingTasks() {
   const global = !$('search-box').hidden && searchScope === 'all';
-  const options = { ...selectionOptions(), view: !global && view === 'completed' ? 'completed' : 'all' };
-  let tasks = selectTasks(state.tasks, options);
-  if (includeCompleted && !$('search-box').hidden && options.view !== 'completed') tasks = tasks.concat(selectTasks(state.tasks, { ...options, view: 'completed' }));
-  return tasks;
+  return selectTasks(state.tasks, { ...selectionOptions(),
+    view: !global && view === 'completed' ? 'completed' : 'all',
+    includeCompleted: state.settings.showCompleted && (global || view !== 'overdue'),
+  });
 }
 function visibleTasks() {
   const tasks = matchingTasks();
   if (!$('search-box').hidden && searchScope === 'all') return tasks;
-  if (view === 'overdue') return tasks.filter(task => task.dueDate && task.dueDate < today);
+  if (view === 'overdue') return tasks.filter(task => !task.completedAt && task.dueDate && task.dueDate < today);
   if (view === 'unscheduled') return tasks.filter(task => !task.dueDate);
   if (!CALENDAR_VIEWS.includes(view)) return tasks;
   const range = calendarRange(view, view === 'day' ? selectedDate : anchorDate);
@@ -414,12 +431,13 @@ function renderTasks() {
       preview: openPreview, openDay, addAt, limits: columnLimits, loadMore: date => { columnLimits.set(date, (columnLimits.get(date) ?? 50) + 50); renderTasks(); } }));
   } else {
     const shown = tasks.slice(0, renderLimit);
-    const groups = groupTasks(shown, view === 'completed' ? 'completed' : 'all', today);
+    const groups = calendar ? (shown.length ? [{ label: selectedDate, tasks: shown }] : []) : groupTasks(shown, view === 'completed' ? 'completed' : 'all', today);
+    const groupCounts = new Map(groupTasks(tasks, view === 'completed' ? 'completed' : 'all', today).map(group => [group.label, group.tasks.length]));
     for (const group of groups) {
       const section = el('section', 'task-group');
       const title = calendar ? (selectedDate === today ? '今天' : selectedDate) : group.label;
       const heading = el('h2', 'group-heading' + (title === '逾期' ? ' overdue' : ''), title);
-      const count = calendar ? tasks.length : groupTasks(tasks, view === 'completed' ? 'completed' : 'all', today).find(item => item.label === group.label)?.tasks.length;
+      const count = calendar ? tasks.length : groupCounts.get(group.label);
       heading.append(el('span', '', String(count ?? group.tasks.length)));
       section.append(heading, ...group.tasks.map(taskRow)); fragment.append(section);
     }
@@ -437,7 +455,7 @@ function renderTasks() {
   const completedOnDay = state.tasks.filter(task => task.completedAt && localDate(new Date(task.completedAt)) === selectedDate).length;
   $('empty-title').textContent = filtered ? '没有匹配的任务' : view === 'completed' ? '还没有完成记录' : !state.tasks.length ? '还没有任务' : view === 'day' ? (completedOnDay ? '当天已完成 ' + completedOnDay + ' 项' : selectedDate === today ? '今天还没有安排' : '当天还没有安排') : view === 'overdue' ? '没有逾期任务' : view === 'unscheduled' ? '没有未安排的任务' : '任务已处理完';
   $('empty-copy').textContent = filtered ? '调整筛选条件，或扩大搜索范围。' : view === 'completed' ? '完成的任务会保留在这里。' : '记下一件要做的事，随时安排。';
-  $('empty-action').textContent = filters.search && searchScope === 'view' ? '搜索全部待办' : filtered ? '清除筛选' : view === 'completed' ? '查看待办' : '添加任务';
+  $('empty-action').textContent = filters.search && searchScope === 'view' ? '搜索全部任务' : filtered ? '清除筛选' : view === 'completed' ? '查看待办' : '添加任务';
   $('projection-status').textContent = calendar && projection?.loading ? '更新重复计划…' : '';
   renderDayDialog();
   if (focusTask && !editor.isOpen) {
@@ -478,12 +496,17 @@ function renderComposer() {
 function renderSettings() {
   const settings = { ...state.settings, ...settingsDraft };
   applyTheme(settings.themePreset);
-  const transparency = Math.round((1 - settings.collapsedHandleOpacity) * 100);
-  document.documentElement.style.setProperty('--collapsed-handle-opacity', String(settings.collapsedHandleOpacity));
-  $('setting-handle-transparency').value = String(transparency);
-  $('setting-handle-transparency').setAttribute('aria-valuetext', transparency + '% 透明');
-  $('setting-handle-transparency').disabled = savingSettings;
-  $('handle-transparency-value').textContent = transparency + '%';
+  for (const [name, key, variable] of [['handle', 'collapsedHandleOpacity', '--collapsed-handle-opacity'], ['panel', 'panelOpacity', '--panel-opacity']]) {
+    const transparency = Math.round((1 - settings[key]) * 100);
+    document.documentElement.style.setProperty(variable, String(settings[key]));
+    const input = $('setting-' + name + '-transparency');
+    input.value = String(transparency);
+    input.setAttribute('aria-valuetext', transparency + '% 透明');
+    input.disabled = savingSettings;
+    $(name + '-transparency-value').textContent = transparency + '%';
+  }
+  $('show-completed').checked = settings.showCompleted;
+  $('show-completed').disabled = savingSettings || (searchScope !== 'all' && ['completed', 'overdue'].includes(view));
   for (const [id, key] of [['setting-pin', 'alwaysOnTop'], ['setting-collapse', 'autoCollapse'], ['setting-startup', 'launchAtLogin']]) {
     $(id).checked = settings[key];
     $(id).disabled = savingSettings || (key === 'launchAtLogin' && !info.canLaunchAtLogin);
@@ -505,20 +528,24 @@ function render() {
   applyTheme(settingsDraft?.themePreset ?? state.settings.themePreset);
   const counts = taskCounts(state.tasks, today, selectionOptions());
   const pendingMatches = selectTasks(state.tasks, { ...selectionOptions(), view: 'all' });
+  const displayedMatches = selectTasks(state.tasks, { ...selectionOptions(), view: 'all', includeCompleted: state.settings.showCompleted });
+  counts.all = displayedMatches.length;
   for (const mode of CALENDAR_VIEWS) {
     const range = calendarRange(mode, mode === 'day' ? selectedDate : anchorDate);
-    counts[mode] = pendingMatches.filter(task => task.dueDate && task.dueDate >= range.start && task.dueDate <= range.end).length;
+    counts[mode] = displayedMatches.filter(task => task.dueDate && task.dueDate >= range.start && task.dueDate <= range.end).length;
   }
   $('count-overdue').textContent = pendingMatches.filter(task => task.dueDate && task.dueDate < today).length;
-  $('count-unscheduled').textContent = pendingMatches.filter(task => !task.dueDate).length;
+  $('count-unscheduled').textContent = displayedMatches.filter(task => !task.dueDate).length;
   const isCalendar = CALENDAR_VIEWS.includes(view);
   document.body.dataset.view = view;
   document.body.dataset.wide = String(['week', 'month'].includes(view));
   $('period-navigation').hidden = !isCalendar;
   $('period-label').textContent = view === 'month' ? anchorDate.slice(0, 4) + '年' + Number(anchorDate.slice(5, 7)) + '月' : view === 'week' ? calendarRange(view, anchorDate).start + ' — ' + calendarRange(view, anchorDate).end.slice(5) : selectedDate;
   $('period-date').value = selectedDate;
-  $('more-views-trigger').firstChild.textContent = isCalendar ? '更多视图' : ({ all: '全部待办', completed: '已完成', overdue: '逾期任务', unscheduled: '未安排' }[view] ?? '更多视图');
+  $('more-views-trigger').firstChild.textContent = isCalendar ? '更多视图' : ({ all: state.settings.showCompleted ? '全部任务' : '全部待办', completed: '已完成', overdue: '逾期任务', unscheduled: '未安排' }[view] ?? '更多视图');
 
+  $('tab-all').firstChild.textContent = (state.settings.showCompleted ? '全部任务' : '全部待办') + ' ';
+  $('search-scope').querySelector('[value="all"]').textContent = state.settings.showCompleted ? '全部任务' : '全部待办';
   const pending = state.tasks.filter(task => !task.completedAt).length;
   $('handle-count').textContent = pending > 99 ? '99+' : String(pending);
   $('edge-handle').dataset.count = String(pending);
@@ -650,7 +677,7 @@ function bindEvents() {
     finally { adding = false; renderComposer(); updateInteraction(); $('task-title').focus(); }
   });
   function showSearch() { $('search-box').hidden = false; $('search-options').hidden = false; $('search-toggle').setAttribute('aria-expanded', 'true'); $('search-input').focus(); }
-  function closeSearch() { searchScope = 'view'; includeCompleted = false; $('search-scope').value = 'view'; $('search-completed').checked = false; $('search-box').hidden = true; $('search-options').hidden = true; $('search-toggle').setAttribute('aria-expanded', 'false'); filters.search = ''; $('search-input').value = ''; render(); }
+  function closeSearch() { searchScope = 'view'; $('search-scope').value = 'view'; $('search-box').hidden = true; $('search-options').hidden = true; $('search-toggle').setAttribute('aria-expanded', 'false'); filters.search = ''; $('search-input').value = ''; render(); }
   $('search-toggle').addEventListener('click', () => $('search-box').hidden ? showSearch() : closeSearch());
   $('search-close').addEventListener('click', () => { closeSearch(); $('search-toggle').focus(); });
   $('search-input').addEventListener('input', () => { filters.search = $('search-input').value; renderLimit = 100; render(); });
@@ -678,13 +705,15 @@ function bindEvents() {
   $$('[data-close]').forEach(button => button.addEventListener('click', () => $(button.dataset.close).close()));
   $$('dialog').forEach(dialog => dialog.addEventListener('close', updateInteraction));
   for (const [id, key] of [['setting-pin', 'alwaysOnTop'], ['setting-collapse', 'autoCollapse'], ['setting-startup', 'launchAtLogin']]) $(id).addEventListener('change', event => { void changeSettings({ [key]: event.target.checked }); });
-  $('setting-handle-transparency').addEventListener('input', event => {
-    settingsDraft = { ...settingsDraft, collapsedHandleOpacity: (100 - Number(event.target.value)) / 100 };
-    renderSettings();
-  });
-  $('setting-handle-transparency').addEventListener('change', event => {
-    void changeSettings({ collapsedHandleOpacity: (100 - Number(event.target.value)) / 100 });
-  });
+  for (const [name, key] of [['handle', 'collapsedHandleOpacity'], ['panel', 'panelOpacity']]) {
+    $('setting-' + name + '-transparency').addEventListener('input', event => {
+      settingsDraft = { ...settingsDraft, [key]: (100 - Number(event.target.value)) / 100 };
+      renderSettings();
+    });
+    $('setting-' + name + '-transparency').addEventListener('change', event => {
+      void changeSettings({ [key]: (100 - Number(event.target.value)) / 100 });
+    });
+  }
   $('reset-placement').addEventListener('click', () => api.resetPlacement().catch(reportError));
   for (const [key, name] of Object.entries(THEME_NAMES)) {
     const choice = button(name, 'theme-choice theme-' + key, () => { void changeSettings({ themePreset: key }); });
@@ -703,7 +732,7 @@ function bindEvents() {
   $('period-label').addEventListener('click', () => { $('period-date').hidden = !$('period-date').hidden; if (!$('period-date').hidden) $('period-date').focus(); });
   $('period-date').addEventListener('change', event => { if (!event.target.value || !event.target.validity.valid) return; followToday = false; selectedDate = anchorDate = event.target.value; syncComposerDate(); render(); });
   $('search-scope').addEventListener('change', event => { searchScope = event.target.value; renderLimit = 100; render(); });
-  $('search-completed').addEventListener('change', event => { includeCompleted = event.target.checked; render(); });
+  $('show-completed').addEventListener('change', event => { renderLimit = 100; columnLimits.clear(); void changeSettings({ showCompleted: event.target.checked }); });
   $('day-dialog').addEventListener('close', () => $('day-tasks').replaceChildren());
   $('preview-edit').addEventListener('click', () => { $('preview-dialog').close(); const task = getTask(previewSource); if (task) editor.open(task); });
   for (const [id, method] of [['export-data', 'exportData'], ['import-data', 'importData']]) {
@@ -713,7 +742,7 @@ function bindEvents() {
       message('settings-message', method === 'exportData' ? '正在导出…' : '请选择备份文件…');
       try {
         const response = await api[method]();
-        if (response.state) { state = response.state; render(); saveStatus('saved'); }
+        if (response.state) { applyState(response.state); saveStatus('saved'); }
         message('settings-message', response.canceled ? '已取消' : method === 'exportData' ? '备份已导出'
           : '已导入 ' + response.result.imported + ' 条，跳过 ' + response.result.skipped + ' 条已有任务');
       } catch (error) { message('settings-message', error.message, true); }
@@ -753,11 +782,13 @@ function bindEvents() {
 async function boot() {
   api = window.__TAURI__ ? await createTauriBridge() : createBrowserBridge();
   window.sideTask = api;
-  api.onStateChange(next => { if (!ready) pendingState = next; else { state = next; render(); } });
+  api.onStateChange(next => { if (!ready) pendingState = next; else applyState(next); });
   api.onWindowChange(value => { if (!ready) pendingWindow = value; else renderWindow(value); });
   api.onAction(action => { if (!ready) earlyActions.push(action); else handleAction(action); });
   const initial = await api.getState();
   state = pendingState ?? initial.state;
+  dataSignature = JSON.stringify([state.tasks, state.categories, state.tags]);
+  taskIndex = new Map(state.tasks.map(task => [task.id, task]));
   view = state.settings.calendarView;
   applyTheme(state.settings.themePreset);
   info = initial.info;
