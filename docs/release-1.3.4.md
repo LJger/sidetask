@@ -20,4 +20,4 @@
 
 已通过 43 个 JavaScript 文件语法检查、71 项 JavaScript 测试、21 项 Rust 测试和 39 项浏览器界面测试。构建与文件校验的详细记录见 [1.3.4 验证记录](https://github.com/LJger/sidetask/blob/v1.3.4/docs/verification-1.3.4.md)。
 
-Edge 收藏夹、Nexus 等受影响程序的偶发交互问题，仍需在对应 Windows 环境复验。
+Windows 原生构建已完成。桌面自动化的部分操作检查通过，完整验证尚未完成；按本次要求直接发布，由用户自行复验安装升级、导入导出及桌面交互。Edge 收藏夹、Nexus 等受影响程序的偶发交互问题也仍需复验。
