@@ -79,19 +79,18 @@ if ($FilePath) {
   $set = $false
   $controlsDeadline = [DateTime]::UtcNow.AddSeconds(15)
   while (-not $set -and [DateTime]::UtcNow -lt $controlsDeadline) {
-    if ([SideTaskDialogWindow]::SetFileName($handle, $FilePath)) {
-      Start-Sleep -Milliseconds 150
-      [void][SideTaskDialogWindow]::SendCommand($handle, 273, [IntPtr]1, [IntPtr]::Zero)
-      Write-Output 'Native file dialog accepted'
-      exit 0
-    }
     foreach ($id in @('1001','1148','FileNameControlHost')) {
       $elements = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty,$id))
       foreach ($element in $elements) {
         $pattern = $null
         if ($element.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$pattern)) {
-          $pattern.SetValue($FilePath); $set = $true; break
+          # UI Automation updates the shell dialog's filename state as well as
+          # its text. WM_SETTEXT alone can leave the default filename selected.
+          $element.SetFocus()
+          $pattern.SetValue($FilePath)
+          if ($pattern.Current.Value -ne $FilePath) { throw 'The file-name control did not retain the requested path' }
+          $set = $true; break
         }
       }
       if ($set) { break }
