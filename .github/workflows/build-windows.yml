@@ -21,6 +21,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          cache-on-failure: true
       - run: npm ci
       - run: npm run check
       - run: npm test
@@ -31,6 +32,13 @@ jobs:
       - run: npx playwright install chromium --only-shell
       - run: npm run test:ui
       - run: npm run build:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SideTask-Windows
+          path: |
+            release/SideTask-*.exe
+            release/SideTask-*.sha256
+          if-no-files-found: error
       - run: cargo install tauri-driver --version 2.0.6 --locked
       - shell: pwsh
         run: |
@@ -41,9 +49,8 @@ jobs:
           SIDETASK_TEST_NATIVE_DRAG: '0'
           SIDETASK_TEST_FILE_DIALOGS: '1'
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: SideTask-Windows
-          path: |
-            release/SideTask-*.exe
-            release/SideTask-*.sha256
-          if-no-files-found: error
+          name: SideTask-Windows-Diagnostics
+          path: test-results/
+          if-no-files-found: ignore

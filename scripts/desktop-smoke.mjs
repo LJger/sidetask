@@ -1,7 +1,7 @@
 import { remote } from 'webdriverio';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, mkdir, rm, cp } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import path from 'node:path';
@@ -16,6 +16,7 @@ const executable = path.resolve(process.env.SIDETASK_TEST_EXECUTABLE || path.joi
 const tauriDriver = process.env.SIDETASK_TAURI_DRIVER || path.join(process.env.CARGO_HOME || path.join(os.homedir(), '.cargo'), 'bin/tauri-driver.exe');
 const edgeDriver = process.env.SIDETASK_EDGE_DRIVER || 'msedgedriver.exe';
 const directory = await mkdtemp(path.join(os.tmpdir(), 'sidetask-native-'));
+console.log('Native test data: ' + directory);
 const scale = process.env.SIDETASK_TEST_SCALE ? Number(process.env.SIDETASK_TEST_SCALE) : null;
 if (scale !== null && ![1,1.25,1.5,2].includes(scale)) throw new Error('Unsupported scale');
 const seed = emptyState();
@@ -28,7 +29,7 @@ const freePort = () => new Promise((resolve, reject) => {
 const port = await freePort(), nativePort = await freePort();
 const child = spawn(tauriDriver, ['--port', String(port), '--native-port', String(nativePort), '--native-driver', edgeDriver], {
   windowsHide: true,
-  env: { ...process.env, SIDETASK_USER_DATA: directory, SIDETASK_TEST_MODE: '1',
+  env: { ...process.env, SIDETASK_USER_DATA: directory, SIDETASK_TEST_MODE: '1', SIDETASK_DIAGNOSTICS: '1',
     ...(scale ? { SIDETASK_TEST_BROWSER_ARGS: '--force-device-scale-factor=' + scale } : {}) },
 });
 let logs = '', spawnError;
@@ -86,7 +87,8 @@ async function clickHandle() {
 async function connect(args = []) {
   const options = { application: executable, args };
   if (scale) options.webviewOptions = { additionalBrowserArguments: ['--force-device-scale-factor=' + scale] };
-  driver = await remote({ hostname:'127.0.0.1',port,path:'/',logLevel:'warn',connectionRetryCount:0,connectionRetryTimeout:45000,
+  // Let EdgeDriver report its own startup failure, including on a cold CI host.
+  driver = await remote({ hostname:'127.0.0.1',port,path:'/',logLevel:'warn',connectionRetryCount:0,connectionRetryTimeout:120000,
     capabilities:{ 'tauri:options':options } });
   await driver.waitUntil(() => driver.execute(() => document.body.dataset.ready === 'true'), { timeout:15000 });
   const fatal = await driver.execute(() => document.getElementById('fatal-error').hidden ? null : document.getElementById('fatal-message').textContent);
@@ -283,6 +285,8 @@ try {
   console.log('Hidden startup and restart persistence passed');
   console.log('Native desktop checks passed. Test data: '+directory);
 } catch (error) {
+  try { console.error('Native window probe', JSON.stringify(await windowInfo())); }
+  catch (probeError) { console.error('Native window probe failed', probeError.message); }
   if (driver) {
     try {
       const current=await state();
@@ -296,4 +300,11 @@ try {
 } finally {
   if (driver) await stopApp();
   child.kill();
+  const artifacts = path.join(root, 'test-results', 'native');
+  await mkdir(artifacts, { recursive: true });
+  await writeFile(path.join(artifacts, 'driver.log'), logs);
+  for (const name of ['window-diagnostics.jsonl', 'test-notifications.jsonl']) {
+    try { await cp(path.join(directory, name), path.join(artifacts, name)); }
+    catch (error) { if (error.code !== 'ENOENT') console.error('Could not collect ' + name, error.message); }
+  }
 }
