@@ -1,4 +1,4 @@
-# 侧记 SideTask 1.3.4
+# 侧记 SideTask 1.3.5
 
 一个可自由摆放、闲置时回到桌面边缘的本地任务工具。支持日／周／月视图、四套主题、分类、多标签、子任务、重复任务和到期提醒，无需账户。
 
@@ -6,9 +6,9 @@
 
 ## 在 Windows 运行
 
-推荐使用 [Windows 安装版](https://github.com/LJger/sidetask/releases/download/v1.3.4/SideTask-Setup-1.3.4-x64.exe)。也可将 [便携版](https://github.com/LJger/sidetask/releases/download/v1.3.4/SideTask-Portable-1.3.4-x64.exe) 放到 Windows 本地目录运行。两者均无需 Node.js；安装包会在缺少 WebView2 时联网补装，已有 WebView2 时无需下载运行时。完整发布文件和校验文件见 [1.3.4 发布页](https://github.com/LJger/sidetask/releases/tag/v1.3.4)。
+推荐使用 [Windows 安装版](https://github.com/LJger/sidetask/releases/download/v1.3.5/SideTask-Setup-1.3.5-x64.exe)。也可将 [便携版](https://github.com/LJger/sidetask/releases/download/v1.3.5/SideTask-Portable-1.3.5-x64.exe) 放到 Windows 本地目录运行。两者均无需 Node.js；安装包会在缺少 WebView2 时联网补装，已有 WebView2 时无需下载运行时。完整发布文件和校验文件见 [1.3.5 发布页](https://github.com/LJger/sidetask/releases/tag/v1.3.5)。
 
-1.3 改用 Tauri 与系统 WebView2，大幅缩小应用包。收起后仅显示待办数量，整个数字把手都能拖动；切换窗口后立即开始收起动画。1.3.1 增加收起图标透明度设置，并修正收起收尾和连续反向操作时的图标定位与动画时序。1.3.2 修正展开中点击外部后，再点图标被焦点恢复和点击重复切换的问题，并为未启动的原生拖动请求增加超时恢复。1.3.3 调整收起时的窗口裁剪和拖动坐标处理。1.3.4 增加面板透明度和显示已完成任务设置，优化日历操作，并改进窗口更新与焦点处理。升级前请保存草稿并从托盘退出旧版。本轮发布验证见 [1.3.4 验证记录](docs/verification-1.3.4.md)，历史记录见 [1.3.3 验证记录](docs/verification-1.3.3.md)、[1.3.2 验证记录](docs/verification-1.3.2.md)、[1.3.1 验证记录](docs/verification-1.3.1.md) 和 [迁移验证记录](docs/verification.md)。
+1.3 改用 Tauri 与系统 WebView2，大幅缩小应用包。收起后仅显示待办数量，整个数字把手都能拖动；切换窗口后立即开始收起动画。1.3.1 增加收起图标透明度设置，并修正收起收尾和连续反向操作时的图标定位与动画时序。1.3.2 修正展开中点击外部后，再点图标被焦点恢复和点击重复切换的问题，并为未启动的原生拖动请求增加超时恢复。1.3.3 调整收起时的窗口裁剪和拖动坐标处理。1.3.4 增加面板透明度和显示已完成任务设置，优化日历操作，并改进窗口更新与焦点处理。1.3.5 修正展开、收起时系统窗口边框闪现的问题。升级前请保存草稿并从托盘退出旧版。本轮发布验证见 [1.3.5 验证记录](docs/verification-1.3.5.md)，历史记录见 [1.3.4 验证记录](docs/verification-1.3.4.md)、[1.3.3 验证记录](docs/verification-1.3.3.md)、[1.3.2 验证记录](docs/verification-1.3.2.md)、[1.3.1 验证记录](docs/verification-1.3.1.md) 和 [迁移验证记录](docs/verification.md)。
 
 源码运行需要 Node.js **22.12 或更高版本**、Rust **1.98 或更高版本的 MSVC 工具链**，以及 Visual Studio C++ Build Tools。在 Windows 本地目录执行：
 
@@ -160,16 +160,16 @@ Windows 上先准备对应版本的 EdgeDriver。以下命令验证已打包程�
 ~~~powershell
 $env:SIDETASK_EDGE_DRIVER = powershell -ExecutionPolicy Bypass -File scripts/setup-webdriver.ps1
 powershell -ExecutionPolicy Bypass -File scripts/verify-windows.ps1 -Executable src-tauri/target/x86_64-pc-windows-msvc/release/SideTask.exe -NativeDrag -AllScales
-powershell -ExecutionPolicy Bypass -File scripts/verify-windows.ps1 -Executable release/SideTask-Portable-1.3.4-x64.exe -Portable
+powershell -ExecutionPolicy Bypass -File scripts/verify-windows.ps1 -Executable release/SideTask-Portable-1.3.5-x64.exe -Portable
 ~~~
 
 原生鼠标测试会短暂移动鼠标并恢复原位置。通知通常被测试替身捕获；额外设置 SIDETASK_TEST_NATIVE_NOTIFICATIONS=1 可验证一次真实系统通知并清除。
 
-1.3.4 的窗口更新集中在 UI 线程执行，合并连续移动事件，对失败更新延迟重试，并避免使用可能模拟 Alt 键的焦点恢复路径。原生鼠标测试还覆盖收起后的四个边缘和展开面板外部的点击、滚轮、右键菜单与前台焦点。代码审查无法确认 Edge 收藏夹或 Nexus 的偶发问题已经消失，仍需在受影响的 Windows 环境验证。
+1.3.4 的窗口更新集中在 UI 线程执行，合并连续移动事件，对失败更新延迟重试，并避免使用可能模拟 Alt 键的焦点恢复路径。1.3.5 在首次显示前清除系统标题栏与边框样式，并过滤运行时对窗口样式的重写，展开、收起时不再闪现系统边框；桌面测试可通过 `SIDETASK_TEST_FRAME_STRESS=1` 运行原生边框回归长测，详见 [窗口边框验证记录](docs/verification-window-frame.md)。原生鼠标测试还覆盖收起后的四个边缘和展开面板外部的点击、滚轮、右键菜单与前台焦点。代码审查无法确认 Edge 收藏夹或 Nexus 的偶发问题已经消失，仍需在受影响的 Windows 环境验证。
 
 排查窗口问题时，可在启动前设置环境变量 `SIDETASK_DIAGNOSTICS=1`。数据目录中的 `window-diagnostics.jsonl` 记录窗口事件、更新耗时和错误，不记录任务内容；文件最多约 1 MiB，达到上限后从头写入，每次启动重新记录。默认关闭。
 
-最新构建与基础验证见 [1.3.4 验证记录](docs/verification-1.3.4.md)，历史平台覆盖见 [迁移验证记录](docs/verification.md)。设计依据保留在 [frontend-design 复查](docs/frontend-design-review.md)。
+最新构建与基础验证见 [1.3.5 验证记录](docs/verification-1.3.5.md)，历史平台覆盖见 [迁移验证记录](docs/verification.md)。设计依据保留在 [frontend-design 复查](docs/frontend-design-review.md)。
 
 界面继续使用原生 HTML／CSS／JavaScript，静态打包仅复制 src 和 assets。Rust 后台串行处理任务、原子保存、窗口状态和提醒；界面通过白名单 IPC 调用后台。浏览器预览保留 JavaScript 模型，共用契约样例校验两套业务实现一致。打包不包含 Node.js、Chromium、测试依赖或开发工具。
 
