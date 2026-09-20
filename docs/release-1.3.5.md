@@ -15,6 +15,6 @@
 
 ## 验证范围
 
-已通过 71 项 JavaScript 测试和 20 项 Rust 核心测试。Windows 11 上的原生边框回归长测通过：置顶开启、关闭各 40 轮展开收起，2,674 次窗口样式采样中系统边框样式出现 0 次；焦点反转、Alt+F4、保存、草稿保护与重启持久化检查通过。详细记录见 [1.3.5 验证记录](https://github.com/LJger/sidetask/blob/v1.3.5/docs/verification-1.3.5.md) 和 [窗口边框验证记录](https://github.com/LJger/sidetask/blob/v1.3.5/docs/verification-window-frame.md)。
+已通过 44 个 JavaScript 文件语法检查、71 项 JavaScript 测试、21 项 Rust 测试和 39 项浏览器界面测试。发布文件由 Windows 构建工作流原生生成，工作流中的原生启动、保存、收起展开、焦点与草稿保护、并发写入及恢复检查通过。Windows 11 上的原生边框回归长测通过：置顶开启、关闭各 40 轮展开收起，2,674 次窗口样式采样中系统边框样式出现 0 次；焦点反转、Alt+F4、保存、草稿保护与重启持久化检查通过。详细记录见 [1.3.5 验证记录](https://github.com/LJger/sidetask/blob/main/docs/verification-1.3.5.md) 和 [窗口边框验证记录](https://github.com/LJger/sidetask/blob/main/docs/verification-window-frame.md)。
 
-真实鼠标拖动、多显示器与 DPI、安装升级流程以及 Edge 收藏夹、Nexus 等程序的交互仍待复验。
+构建工作流中的文件对话框自动化步骤仍未通过，属于测试脚本对系统对话框的适配问题，与 1.3.4 发布时相同。真实鼠标拖动、多显示器与 DPI、安装升级流程以及 Edge 收藏夹、Nexus 等程序的交互仍待复验。
