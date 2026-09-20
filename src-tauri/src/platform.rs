@@ -15,7 +15,9 @@ use windows::{
     Data::Xml::Dom::XmlDocument,
     Foundation::TypedEventHandler,
     Win32::{
-        Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM},
+        Foundation::{
+            GetLastError, SetLastError, ERROR_SUCCESS, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM,
+        },
         Graphics::Gdi::{
             CreateRectRgn, DeleteObject, EnumDisplayMonitors, GetMonitorInfoW, SetWindowRgn, HDC,
             HGDIOBJ, HMONITOR, MONITORINFO, MONITORINFOEXW,
@@ -299,6 +301,50 @@ pub fn set_region(window: &WebviewWindow, bounds: Option<Rect>) -> Result<()> {
     Ok(())
 }
 
+fn frameless_style(index: WINDOW_LONG_PTR_INDEX, style: u32) -> u32 {
+    let frame = if index == GWL_STYLE {
+        WS_CAPTION.0 | WS_THICKFRAME.0
+    } else if index == GWL_EXSTYLE {
+        WS_EX_WINDOWEDGE.0 | WS_EX_CLIENTEDGE.0 | WS_EX_DLGMODALFRAME.0 | WS_EX_STATICEDGE.0
+    } else {
+        0
+    };
+    // Keep WS_SYSMENU for Alt+F4, along with visibility, transparency and Z-order.
+    style & !frame
+}
+
+fn clear_native_frame(hwnd: HWND) -> Result<()> {
+    unsafe {
+        for index in [GWL_STYLE, GWL_EXSTYLE] {
+            let current = GetWindowLongPtrW(hwnd, index) as u32;
+            let next = frameless_style(index, current);
+            if current == next {
+                continue;
+            }
+            // A zero return can be a valid previous style, especially GWL_EXSTYLE.
+            SetLastError(ERROR_SUCCESS);
+            if SetWindowLongPtrW(hwnd, index, next as isize) == 0 && GetLastError() != ERROR_SUCCESS
+            {
+                return Err(format!(
+                    "无法禁用系统窗口边框：{}",
+                    windows::core::Error::from_win32()
+                ));
+            }
+        }
+        SetWindowPos(
+            hwnd,
+            None,
+            0,
+            0,
+            0,
+            0,
+            SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+        )
+        .map_err(|error| format!("无法更新无边框窗口：{error}"))?;
+    }
+    Ok(())
+}
+
 pub fn install_hook(window: &WebviewWindow, sender: Sender<Op>) -> Result<()> {
     unsafe extern "system" fn callback(
         hwnd: HWND,
@@ -310,6 +356,24 @@ pub fn install_hook(window: &WebviewWindow, sender: Sender<Op>) -> Result<()> {
     ) -> LRESULT {
         let sender = &*(data as *const Sender<Op>);
         match message {
+            WM_STYLECHANGING if lparam.0 != 0 => {
+                // Tao rewrites the caption/edge styles when changing visibility
+                // or topmost state. Filter the proposed styles before Windows
+                // applies them, so no intermediate decorated frame can be drawn.
+                let styles = &mut *(lparam.0 as *mut STYLESTRUCT);
+                styles.styleNew =
+                    frameless_style(WINDOW_LONG_PTR_INDEX(wparam.0 as i32), styles.styleNew);
+            }
+            WM_NCCALCSIZE | WM_NCPAINT => {
+                // The fixed-size sidebar uses the entire HWND as its client area,
+                // including the wParam == FALSE form of WM_NCCALCSIZE.
+                return LRESULT(0);
+            }
+            WM_NCACTIVATE => {
+                // Tao must still update its active/focused state for auto-collapse.
+                // -1 tells DefWindowProc to skip painting the non-client area.
+                return DefSubclassProc(hwnd, message, wparam, LPARAM(-1));
+            }
             WM_ENTERSIZEMOVE => {
                 let _ = sender.send(Op::DragBegin);
             }
@@ -349,9 +413,11 @@ pub fn install_hook(window: &WebviewWindow, sender: Sender<Op>) -> Result<()> {
         unsafe {
             drop(Box::from_raw(data));
         }
-        return Err("无法启用窗口拖动。".into());
+        return Err("无法启用窗口消息处理。".into());
     }
-    Ok(())
+    // Install the style guard first, then remove the styles already assigned by
+    // Tao. This runs on the window thread before the initially hidden HWND is shown.
+    clear_native_frame(handle)
 }
 
 pub fn data_directory() -> Result<PathBuf> {

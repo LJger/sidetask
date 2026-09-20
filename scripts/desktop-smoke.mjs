@@ -8,6 +8,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { emptyState, createTask, localDate } from '../src/domain.mjs';
+import { checkNativeFrames } from './native-frame-checks.mjs';
 
 if (process.platform !== 'win32') throw new Error('原生桌面测试需在 Windows 运行；浏览器测试请使用 npm run test:ui。');
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -32,7 +33,7 @@ child.stdout.on('data', chunk => { logs += chunk; });
 child.stderr.on('data', chunk => { logs += chunk; });
 child.on('error', error => { spawnError = error; });
 let driver, appProcess, appClosed;
-const waitPhase = async phase => driver.waitUntil(async () => (await driver.execute(() => document.body.dataset.phase)) === phase, { timeout: 10000, timeoutMsg: 'Window did not settle to ' + phase });
+const waitPhase = async phase => driver.waitUntil(async () => (await driver.execute(() => document.body.dataset.phase)) === phase, { timeout: 10000, interval: 25, timeoutMsg: 'Window did not settle to ' + phase });
 const state = () => driver.execute(() => window.sideTask.getState());
 const invoke = (command, args = {}) => driver.execute((command, args) => window.__TAURI__.core.invoke('request', { command, args }), command, args);
 const click = async selector => (await driver.$(selector)).click();
@@ -46,7 +47,11 @@ const windowInfo = async(action='Info')=>{
   const prefix='SIDETASK_PROBE:';
   const result=output.split(/\r?\n/).find(line=>line.startsWith(prefix));
   if(!result) throw new Error('Missing native window diagnostics: '+output);
-  return JSON.parse(result.slice(prefix.length));
+  const native = JSON.parse(result.slice(prefix.length));
+  assert.equal(native.frame.decorated, false, 'System frame styles returned: '+JSON.stringify(native));
+  assert.ok(native.frame.style & 0x00080000, 'The native close menu must remain available for Alt+F4');
+  assert.deepEqual(native.clientBounds, native.bounds, 'A borderless window must have no non-client insets');
+  return native;
 };
 async function nativeDragTo(x,y,collapsed=true) {
   const native=await windowInfo('Focus');
@@ -97,10 +102,15 @@ async function connect(args = []) {
   appProcess.stdout.on('data', chunk => { logs += chunk; });
   appProcess.stderr.on('data', chunk => { logs += chunk; });
   const deadline = Date.now() + 60000;
+  // Attaching while the app page is still about:blank lets EdgeDriver's session
+  // setup abort the pending navigation to the app, so wait for the page target.
   while (true) {
     if (appError) throw appError;
     if (appProcess.exitCode !== null) throw new Error('Application exited before WebView2 was ready: ' + appProcess.exitCode);
-    try { if ((await fetch(`http://127.0.0.1:${debugPort}/json/version`, { signal: AbortSignal.timeout(2000) })).ok) break; } catch {}
+    try {
+      const response = await fetch(`http://127.0.0.1:${debugPort}/json/list`, { signal: AbortSignal.timeout(2000) });
+      if (response.ok && (await response.json()).some(target => target.type === 'page' && target.url.startsWith('http://tauri.localhost/'))) break;
+    } catch {}
     if (Date.now() >= deadline) throw new Error('WebView2 debugging endpoint did not become ready');
     await delay(100);
   }
@@ -137,6 +147,10 @@ try {
   assert.equal(await driver.execute(()=>typeof window.require),'undefined');
   console.log('Native startup',JSON.stringify(initial.window.monitor));
   await waitPhase('expanded');
+  await windowInfo();
+  if (process.env.SIDETASK_TEST_FRAME_STRESS === '1') {
+    await checkNativeFrames({root, directory, executable, driver, state, invoke, waitPhase, clickHandle, windowInfo, click});
+  }
   await (await driver.$('#task-title')).setValue('原生后台保存检查');
   await click('#add-task');
   await driver.waitUntil(async()=> (await state()).state.tasks.length===1,{timeout:5000});
@@ -157,8 +171,10 @@ try {
         await waitPhase('collapsed');
         await visibleHandle();
         assert.equal((await state()).window.dockSide,edge);
+        await windowInfo();
         await clickHandle();
         await waitPhase('expanded');
+        await windowInfo();
       }
     }
   }
