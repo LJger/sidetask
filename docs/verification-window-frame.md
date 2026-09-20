@@ -51,8 +51,11 @@ npm run test:desktop
 
 ## 本地修复版
 
-`release/SideTask-Portable-1.3.4-frame-fix-x64.exe`，3,443,712 字节。
+| 文件 | 字节数 | SHA-256 |
+| --- | ---: | --- |
+| `release/SideTask-Portable-1.3.4-frame-fix-x64.exe` | 3443712 | `073775687e058ba4396f4c2258f3128c642945c994d20d7c0ae18570fd441a5b` |
+| `release/SideTask-Setup-1.3.4-frame-fix-x64.exe` | 1476119 | `dd35dc18be6df4974cd59dbf372cc36c86519f77471b7d520ba0546dab7f17a7` |
 
-SHA-256：`073775687e058ba4396f4c2258f3128c642945c994d20d7c0ae18570fd441a5b`。
+安装包在 WSL 使用本地 NSIS 3.08 与现有安装器模板交叉打包，未签名；两个文件的版本资源均为 1.3.4。安装包沿用 1.3.4 版本号，如需正式发布应先提升版本号并通过 Windows 构建工作流重新生成。
 
-从托盘退出旧版，再运行此文件。对应校验文件与可执行文件放在同一目录。
+从托盘退出旧版，再运行安装包或便携版。对应校验文件与可执行文件放在同一目录。
