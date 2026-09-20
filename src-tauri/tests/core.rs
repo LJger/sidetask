@@ -113,6 +113,14 @@ fn validates_calendar_types_references_and_utf16_limits() {
     task.category_id = Some("missing".into());
     assert!(assert_references(&task, &State::default()).is_err());
     assert!(validate_settings(&json!({"autoCollapse": "yes"}), &Settings::default()).is_err());
+    assert!(validate_settings(&json!({"motionStyle": "bounce"}), &Settings::default()).is_err());
+    assert_eq!(
+        validate_settings(&json!({"motionStyle": "reveal"}), &Settings::default())
+            .unwrap()
+            .motion_style,
+        "reveal"
+    );
+    assert_eq!(Settings::default().motion_style, "slide");
     assert!(validate_settings(
         &json!({"windowPlacement": {"mode":"floating"}}),
         &Settings::default()

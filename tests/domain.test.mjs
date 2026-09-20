@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addDays, createTask, DEFAULT_SETTINGS, describeDate, emptyState, groupTasks, isDateOnly, localDate, patchTask, selectTasks, taskCounts, validateSettings, validateState } from '../src/domain.mjs';
+import { addDays, createTask, DEFAULT_SETTINGS, describeDate, emptyState, formatPeriod, groupTasks, isDateOnly, localDate, patchTask, selectTasks, taskCounts, validateSettings, validateState } from '../src/domain.mjs';
 
 const now = '2026-09-07T03:00:00.000Z';
 const today = '2026-09-07';
@@ -84,6 +84,16 @@ test('date labels handle daylight saving transitions and year changes', () => {
     assert.equal(describeDate('2027-02-01', today).label, '2027年2月1日');
     assert.equal(describeDate('2026-09-08', today).label, '明天');
   } finally { if (previous === undefined) delete process.env.TZ; else process.env.TZ = previous; }
+});
+
+test('period labels read as calendar dates rather than ISO strings', () => {
+  assert.equal(formatPeriod('day', '2026-09-08', '2026-09-08', '2026-09-08'), '9月8日 周二');
+  assert.equal(formatPeriod('day', '2026-09-08', '2027-01-01', '2026-09-08'), '2027年1月1日 周五');
+  assert.equal(formatPeriod('week', '2026-09-08', '2026-09-08', '2026-09-08'), '9月7日 – 13日');
+  assert.equal(formatPeriod('week', '2026-09-30', '2026-09-30', '2026-09-08'), '9月28日 – 10月4日');
+  assert.equal(formatPeriod('week', '2026-12-31', '2026-12-31', '2026-09-08'), '2026年12月28日 – 2027年1月3日');
+  assert.equal(formatPeriod('week', '2027-03-03', '2027-03-03', '2026-09-08'), '2027年3月1日 – 7日');
+  assert.equal(formatPeriod('month', '2026-09-08', '2026-09-08', '2026-09-08'), '2026年9月');
 });
 
 test('requires a supported backup schema and unique task IDs', () => {

@@ -70,7 +70,7 @@
               <button id="more-views-trigger" class="filter-button" aria-expanded="false" aria-controls="more-views">更多视图<svg class="icon"><use href="#i-down"/></svg></button>
               <div id="more-views" class="popover task-menu" hidden><div class="popover-heading">其他视图</div><button data-view="all" id="tab-all">全部待办 <span id="count-all">0</span></button><button data-view="completed" id="tab-completed">已完成 <span id="count-completed">0</span></button></div>
             </div>
-            <div class="period-navigation" id="period-navigation"><button class="icon-button" id="period-prev" aria-label="上一周期"><svg class="icon"><use href="#i-left"/></svg></button><button id="period-label" class="period-label" aria-label="选择日历日期"></button><input id="period-date" type="date" min="1900-01-01" max="9999-12-31" aria-label="跳转日期" hidden><button class="icon-button" id="period-next" aria-label="下一周期"><svg class="icon"><use href="#i-right"/></svg></button><button id="period-today" class="text-button">今天</button></div>
+            <div class="period-navigation" id="period-navigation"><button class="icon-button" id="period-prev" aria-label="上一周期"><svg class="icon"><use href="#i-left"/></svg></button><button id="period-label" class="period-label" aria-label="选择日历日期" title="点击选择日期"></button><input id="period-date" type="date" min="1900-01-01" max="9999-12-31" aria-label="跳转日期" class="period-date-input" hidden><button class="icon-button" id="period-next" aria-label="下一周期"><svg class="icon"><use href="#i-right"/></svg></button><button id="period-today" class="text-button">今天</button></div>
             <div class="filter-bar">
               <select id="category-filter" aria-label="筛选分类"><option value="all">全部分类</option><option value="none">未分类</option></select>
               <button class="filter-button" id="tag-filter-trigger" aria-expanded="false" aria-controls="tag-filter-popover"><svg class="icon"><use href="#i-tag"/></svg><span id="tag-filter-label">标签</span><svg class="icon filter-chevron" aria-hidden="true"><use href="#i-down"/></svg></button>
@@ -110,7 +110,7 @@
 
         <section class="task-detail" id="task-detail" hidden aria-labelledby="edit-heading">
           <form id="edit-form">
-            <header class="detail-header" data-drag><button class="icon-button" id="detail-back" type="button" aria-label="返回任务列表" title="返回"><svg class="icon"><use href="#i-left"/></svg></button><h2 id="edit-heading">任务详情</h2><span id="detail-dirty" class="detail-dirty" hidden>未保存</span><button class="primary-button compact" id="save-edit" type="submit">保存</button></header>
+            <header class="detail-header" data-drag><button class="icon-button" id="detail-back" type="button" aria-label="返回任务列表" title="返回"><svg class="icon"><use href="#i-left"/></svg></button><h2 id="edit-heading">任务详情</h2><span id="detail-dirty" class="detail-dirty" hidden>未保存</span><button class="primary-button compact" id="save-edit" type="submit" title="保存（Ctrl+Enter）">保存</button></header>
             <div class="detail-scroll">
               <label class="sr-only" for="edit-title">任务名称</label><textarea class="detail-title" id="edit-title" maxlength="160" rows="2" placeholder="任务名称" aria-label="任务名称" required></textarea>
               <div class="field-grid">
@@ -156,6 +156,7 @@
   <dialog class="app-dialog settings-dialog" id="settings-dialog" aria-labelledby="settings-heading">
     <div class="dialog-heading"><div><h2 id="settings-heading">设置</h2></div><button class="icon-button" data-close="settings-dialog" aria-label="关闭设置"><svg class="icon"><use href="#i-close"/></svg></button></div>
     <section class="theme-settings"><h3>外观</h3><div id="theme-presets" class="theme-presets"></div>
+      <div class="setting-row motion-setting"><div><label id="motion-label">展开方式</label><p>侧栏从边缘出现的动态效果</p></div><div id="motion-presets" class="motion-presets" role="group" aria-labelledby="motion-label"></div></div>
       <div class="setting-row opacity-setting">
         <div class="opacity-heading"><label for="setting-panel-transparency">面板透明度</label><output id="panel-transparency-value" for="setting-panel-transparency">0%</output></div>
         <input id="setting-panel-transparency" type="range" min="0" max="80" step="1" value="0" aria-describedby="panel-transparency-help">

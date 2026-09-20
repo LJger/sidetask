@@ -1,5 +1,5 @@
 import { REPEAT_LABELS } from './domain.mjs';
-import { $, el, button, colorDot, options, message, toast } from './ui.mjs';
+import { $, el, button, colorDot, options, message, toast, EASE, reducedMotion } from './ui.mjs';
 
 export class TaskEditor {
   constructor({ api, mutate, getState, getInfo, onInteraction, onSaved, onDeleted, onOpen, onClose, manageTags }) {
@@ -8,6 +8,12 @@ export class TaskEditor {
     this.tags = [];
     this.subtasks = [];
     $('edit-form').addEventListener('submit', event => { event.preventDefault(); void this.save(); });
+    $('edit-form').addEventListener('keydown', event => {
+      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !event.isComposing && event.keyCode !== 229) {
+        event.preventDefault();
+        $('edit-form').requestSubmit();
+      }
+    });
     $('edit-form').addEventListener('input', () => this.updateStatus());
     $('edit-form').addEventListener('change', () => this.updateStatus());
     $('detail-back').addEventListener('click', () => this.leave());
@@ -38,7 +44,7 @@ export class TaskEditor {
     }));
   }
 
-  get isOpen() { return !$('task-detail').hidden; }
+  get isOpen() { return !$('task-detail').hidden && !this.closing; }
 
   setBusy(busy) {
     this.busy = busy;
@@ -70,10 +76,20 @@ export class TaskEditor {
   }
 
   serialize() { return JSON.stringify([this.read(), $('subtask-title').value]); }
-  get dirty() { return this.isOpen && this.serialize() !== this.baseline; }
+  get dirty() {
+    if (!this.isOpen) return false;
+    // updateStatus() serializes once and shares that answer with the
+    // interaction callback it triggers, instead of reading the form twice.
+    return this.dirtyCache ?? this.serialize() !== this.baseline;
+  }
 
   open(task = null, defaults = {}) {
     this.onOpen();
+    const reopening = this.closing;
+    this.exit?.cancel();
+    this.exit = null;
+    this.closing = false;
+    this.closed = null;
     this.id = task?.id ?? null;
     this.original = task ? structuredClone(task) : null;
     const draft = task ?? { title: '', notes: '', dueDate: null, dueTime: null, priority: 'normal', categoryId: null, tagIds: [], subtasks: [], recurrence: null, reminder: null, ...defaults };
@@ -102,6 +118,7 @@ export class TaskEditor {
     $('schedule-section').open = Boolean(draft.recurrence || draft.reminder);
     $('notes-section').open = Boolean(draft.notes);
     $('list-view').hidden = document.body.dataset.wide !== 'true';
+    const entering = $('task-detail').hidden || reopening;
     $('task-detail').hidden = false;
     this.renderTags();
     this.renderSubtasks();
@@ -110,15 +127,42 @@ export class TaskEditor {
     $('task-detail').querySelector('.detail-scroll').scrollTop = 0;
     this.onInteraction();
     $('edit-title').focus({ preventScroll: true });
+    if (entering && !reducedMotion()) {
+      const wide = document.body.dataset.wide === 'true';
+      $('task-detail').animate([{ opacity: 0, transform: wide ? 'translateX(16px)' : 'translateX(8px)' }, { opacity: 1, transform: 'none' }], { duration: 180, easing: EASE });
+    }
   }
 
   close() {
-    if (this.busy) return;
+    if (this.busy || this.closing) return this.closed ?? Promise.resolve();
     const id = this.id;
-    $('task-detail').hidden = true;
-    $('list-view').hidden = false;
+    let resolve;
+    this.closed = new Promise(done => { resolve = done; });
+    const finish = () => {
+      this.closing = false;
+      this.closed = null;
+      $('task-detail').hidden = true;
+      $('list-view').hidden = false;
+      this.onInteraction();
+      this.onClose(id);
+      resolve();
+    };
+    if (reducedMotion() || $('task-detail').hidden) { finish(); return this.closed ?? Promise.resolve(); }
+    // The panel slides away before the list takes its place; a reopen during
+    // that moment simply cancels the exit.
+    this.closing = true;
     this.onInteraction();
-    this.onClose(id);
+    const wide = document.body.dataset.wide === 'true';
+    const animation = $('task-detail').animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: wide ? 'translateX(16px)' : 'none' }], { duration: wide ? 160 : 110, easing: EASE, fill: 'forwards' });
+    this.exit = animation;
+    const pending = this.closed;
+    animation.finished.then(() => {
+      if (this.exit !== animation) return;
+      this.exit = null;
+      animation.cancel();
+      finish();
+    }).catch(() => {});
+    return pending;
   }
 
   leave(action = () => this.close()) {
@@ -212,7 +256,15 @@ export class TaskEditor {
     if (!this.isOpen) return;
     $('edit-title').style.height = 'auto';
     $('edit-title').style.height = $('edit-title').scrollHeight + 'px';
-    $('detail-dirty').hidden = !this.dirty;
+    this.dirtyCache = this.serialize() !== this.baseline;
+    try {
+      $('detail-dirty').hidden = !this.dirtyCache;
+      this.renderSummaries();
+      this.onInteraction();
+    } finally { this.dirtyCache = null; }
+  }
+
+  renderSummaries() {
     if (this.id) $('save-edit').textContent = $('edit-completed').checked && !this.original.completedAt ? '保存并完成' : !$('edit-completed').checked && this.original.completedAt ? '保存并重新打开' : '保存';
     const finished = this.subtasks.filter(item => item.completed).length;
     $('subtask-summary').textContent = this.subtasks.length ? finished + ' / ' + this.subtasks.length : '0 项';
@@ -231,7 +283,6 @@ export class TaskEditor {
     const summary = [REPEAT_LABELS[frequency], $('edit-reminder').value !== 'none' ? '已设提醒' : null].filter(Boolean);
     $('schedule-summary').textContent = summary.join(' · ') || '未设置';
     $('notes-summary').textContent = $('edit-notes').value.trim() ? '已填写' : '未填写';
-    this.onInteraction();
   }
 
   async save() {

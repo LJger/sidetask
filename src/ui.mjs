@@ -1,5 +1,7 @@
 export const $ = id => document.getElementById(id);
 export const $$ = selector => [...document.querySelectorAll(selector)];
+export const EASE = 'cubic-bezier(.22,1,.36,1)';
+export const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 export function el(tag, className = '', text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -19,8 +21,8 @@ export function button(label, className = '', action, iconName) {
   const node = el('button', className);
   node.type = 'button';
   node.setAttribute('aria-label', label);
-  node.title = label;
-  if (iconName) node.append(icon(iconName));
+  // Only icon-only buttons need a tooltip; visible text already says it.
+  if (iconName) { node.title = label; node.append(icon(iconName)); }
   else node.textContent = label;
   if (action) node.addEventListener('click', action);
   return node;
@@ -91,6 +93,7 @@ export class Popovers {
     node.setAttribute('role', 'dialog');
     node.setAttribute('aria-label', node.querySelector('.popover-heading')?.textContent || '任务操作');
     node.hidden = false;
+    if (node.matches(':popover-open')) node.hidePopover();
     node.showPopover();
     const rect = trigger.getBoundingClientRect();
     const size = node.getBoundingClientRect();
@@ -108,8 +111,13 @@ export class Popovers {
   }
   close(restoreFocus = false) {
     if (!this.active) return;
-    this.active.hidePopover();
-    this.active.hidden = true;
+    const node = this.active;
+    node.hidePopover();
+    // Keep the element rendered until its exit transition has played; the
+    // hidden attribute still records the closed state for the next open.
+    const finish = () => { if (!node.matches(':popover-open')) node.hidden = true; };
+    if (reducedMotion()) finish();
+    else { node.addEventListener('transitionend', finish, { once: true }); setTimeout(finish, 220); }
     this.trigger?.setAttribute('aria-expanded', 'false');
     if (restoreFocus) this.trigger?.focus({ preventScroll: true });
     this.active = null;

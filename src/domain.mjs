@@ -3,9 +3,10 @@ export const SCHEMA_VERSION = 3;
 export const MAX_TASKS = 10000;
 export const COLORS = ['#32654d', '#4676a9', '#8262ad', '#b9784a', '#b55b7b', '#697781'];
 export const REPEAT_LABELS = { daily: '每天', weekdays: '工作日', weekly: '每周', monthly: '每月' };
+export const MOTION_STYLES = ['slide', 'fade', 'pop', 'reveal'];
 export const DEFAULT_SETTINGS = Object.freeze({
   dockSide: 'right', alwaysOnTop: true, autoCollapse: true, launchAtLogin: false,
-  themePreset: 'pine', collapsedHandleOpacity: 0.8, panelOpacity: 1, showCompleted: true, calendarView: 'day', windowPlacement: Object.freeze(defaultPlacement()),
+  themePreset: 'pine', motionStyle: 'slide', collapsedHandleOpacity: 0.8, panelOpacity: 1, showCompleted: true, calendarView: 'day', windowPlacement: Object.freeze(defaultPlacement()),
 });
 
 export function assertObject(value, label) {
@@ -204,6 +205,10 @@ export function validateSettings(patch) {
     if (!['pine', 'mist', 'sand', 'graphite', 'system'].includes(patch.themePreset)) throw new Error('主题无效。');
     result.themePreset = patch.themePreset;
   }
+  if (Object.hasOwn(patch, 'motionStyle')) {
+    if (!MOTION_STYLES.includes(patch.motionStyle)) throw new Error('展开方式无效。');
+    result.motionStyle = patch.motionStyle;
+  }
   if (Object.hasOwn(patch, 'collapsedHandleOpacity')) {
     if (!Number.isFinite(patch.collapsedHandleOpacity) || patch.collapsedHandleOpacity < 0.2 || patch.collapsedHandleOpacity > 1) throw new Error('收起图标透明度无效。');
     result.collapsedHandleOpacity = patch.collapsedHandleOpacity;
@@ -279,6 +284,26 @@ export function describeDate(value, today = localDate()) {
   }
   const [year, month, day] = value.split('-').map(Number);
   return { label: (year !== Number(today.slice(0, 4)) ? year + '年' : '') + month + '月' + day + '日', tone: 'muted' };
+}
+
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
+export function formatPeriod(view, anchor, selected, today = localDate()) {
+  const parts = value => value.split('-').map(Number);
+  const [year, month, day] = parts(view === 'day' ? selected : anchor);
+  const thisYear = year === Number(today.slice(0, 4));
+  if (view === 'month') return year + '年' + month + '月';
+  if (view === 'day') {
+    const weekday = '周' + WEEKDAYS[new Date(year, month - 1, day, 12).getDay()];
+    return (thisYear ? '' : year + '年') + month + '月' + day + '日 ' + weekday;
+  }
+  const start = addDays(anchor, -((new Date(anchor + 'T12:00:00').getDay() + 6) % 7));
+  const end = addDays(start, 6);
+  const [startYear, startMonth, startDay] = parts(start);
+  const [endYear, endMonth, endDay] = parts(end);
+  const sameYear = startYear === endYear;
+  const head = (sameYear && startYear === Number(today.slice(0, 4)) ? '' : startYear + '年') + startMonth + '月' + startDay + '日';
+  const tail = (sameYear ? '' : endYear + '年') + (startMonth === endMonth && sameYear ? '' : endMonth + '月') + endDay + '日';
+  return head + ' – ' + tail;
 }
 
 export function matchesFilters(task, { categoryId, tagIds = [], search = '', categories = [], tags = [], taskIds } = {}) {

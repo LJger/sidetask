@@ -137,4 +137,7 @@ test('v2 upgrade preserves originals and task fields while adding themes and pla
   assert.equal(await readFile(path.join(dir,'tasks.v2-original.json'),'utf8'),raw);
   assert.throws(()=>validateState({...source,version:4}),/数据版本/);
   assert.throws(()=>validateSettings({themePreset:'unknown'}),/主题/);
+  assert.equal(store.snapshot().settings.motionStyle,'slide');
+  assert.deepEqual(validateSettings({motionStyle:'reveal'}),{motionStyle:'reveal'});
+  assert.throws(()=>validateSettings({motionStyle:'bounce'}),/展开方式/);
 });

@@ -9,6 +9,12 @@
 @property --handle-open { syntax: "<number>"; inherits: false; initial-value: 1; }
 .drawer,body[data-dock] .drawer { width:var(--panel-width); height:var(--panel-height); top:0; left:0; right:auto; padding:0; transform:translate(0,0); }
 .panel { position:absolute; inset:3px 6px 3px 40px; height:auto; border-radius:16px; background:var(--canvas); border-color:var(--line); container-type:inline-size; }
+/* Opening styles scale or unveil the panel from the docked edge. */
+body[data-motion="pop"] .panel { transform-origin:100% 50%; }
+body[data-motion="pop"][data-dock="left"] .panel { transform-origin:0 50%; }
+body[data-motion="pop"][data-dock="top"] .panel { transform-origin:50% 0; }
+body[data-motion="pop"][data-dock="bottom"] .panel { transform-origin:50% 100%; }
+body[data-motion="fade"] .panel { transform-origin:50% 50%; }
 body[data-dock="left"] .panel { inset:3px 40px 3px 6px; }
 body[data-dock="top"] .panel { inset:3px 6px 40px; }
 body[data-dock="bottom"] .panel { inset:40px 6px 3px; }
@@ -40,22 +46,26 @@ body[data-dragging="true"] [data-drag] { cursor:grabbing; }
 .view-tab { font-size:12px; padding:7px 4px; }
 .view-tab>span { font-size:11px; }
 #more-views-trigger { white-space:nowrap; font-size:11px; }
-.period-navigation { display:flex; align-items:center; gap:4px; min-height:38px; position:relative; }
-.period-label { flex:1; padding:4px 0; font-size:13px; font-weight:600; background:transparent; text-align:left; font-variant-numeric:tabular-nums; }
-#period-date { position:absolute; z-index:4; top:36px; left:20px; border:1px solid var(--control-border); border-radius:6px; padding:6px; background:var(--surface); }
+.period-navigation { display:flex; align-items:center; gap:5px; min-height:36px; position:relative; }
+.period-navigation .icon-button { width:32px; height:32px; border:1px solid transparent; }
+.period-navigation .icon-button:hover { border-color:var(--line); background:var(--soft); }
+.period-label { flex:1; min-height:34px; padding:6px 9px; border-radius:8px; font-size:13px; font-weight:600; background:transparent; text-align:left; font-variant-numeric:tabular-nums; }
+.period-label:hover { background:var(--soft); }
+#period-date { position:absolute; z-index:4; top:39px; left:38px; height:var(--control-height); padding:0 9px; border:1px solid var(--field-border); border-radius:var(--control-radius); background:var(--surface); color:var(--ink); box-shadow:var(--shadow); font-variant-numeric:tabular-nums; }
+/* When only the native picker is wanted, the field stays in the tree but out of sight. */
+#period-date.is-picker-only { opacity:0; pointer-events:none; width:1px; height:1px; padding:0; border:0; overflow:hidden; }
 #period-today { margin-left:auto; padding:5px; }
-.filter-bar { height:34px; }
+.filter-bar { gap:7px; height:36px; }
 .filter-bar select,.filter-button { font-size:12px; }
-#sort-select { font-size:11px; width:84px; }
-.composer { border-radius:8px; padding:8px 10px 5px; }
-#task-title { font-size:13px; height:30px; }
+#sort-select { font-size:11px; width:96px; flex-shrink:0; }
+.composer { padding:6px 10px 4px; border-color:var(--field-border); border-radius:10px; }
+#task-title { font-size:13px; height:31px; }
 .composer-options { padding-left:0; gap:8px; flex-wrap:wrap; }
 .option-chip,.composer-options select { font-size:11px; }
 #composer-tags-trigger { min-width:0; max-width:110px; }
 #composer-tags-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.search-options { display:flex; align-items:center; gap:10px; padding:0 2px 8px; font-size:11px; }
-.search-options select { border:1px solid var(--control-border); border-radius:6px; padding:4px; background:var(--surface); }
-.search-options label { display:flex; align-items:center; gap:3px; }
+.search-options { display:flex; align-items:center; gap:8px; padding:0 2px 8px; font-size:11px; flex-wrap:wrap; }
+.search-options label { display:flex; align-items:center; gap:5px; min-height:30px; cursor:pointer; }
 .backlog-shortcuts { display:flex; align-items:center; gap:12px; padding:3px 16px 0; flex-shrink:0; }
 .backlog-shortcuts .text-button { font-size:11px; gap:6px; }
 #backlog-overdue { color:var(--danger); }
@@ -64,16 +74,34 @@ body[data-dragging="true"] [data-drag] { cursor:grabbing; }
 .group-heading { font-size:12px; margin:14px 0 4px; color:var(--secondary); }
 .group-heading:before { display:none; }
 .group-heading>span { font-size:11px; color:var(--secondary); }
-.task-row { grid-template-columns:32px minmax(0,1fr) 28px; gap:6px; border:0; border-bottom:1px solid var(--line); border-radius:0; background:transparent; margin:0; padding:10px 0; min-height:66px; }
-.task-row:hover { background:var(--soft); border-color:var(--line); }
-.task-row.is-important { background:transparent; border-color:var(--line); }
+/* Rows sit flush with the list edge and light up as a rounded pill on hover;
+   the divider is a shadow so it never fights the corner radius. */
+.task-row { grid-template-columns:32px minmax(0,1fr) 28px; gap:6px; border:0; border-radius:8px; background:transparent; margin:0 -8px; padding:10px 8px; min-height:66px; box-shadow:inset 0 -1px var(--line); cursor:pointer; transition:background-color .14s; }
+.task-row:hover { background:var(--soft); }
+.task-row:has(.task-checkbox:focus-visible, .task-title-button:focus-visible) { background:var(--soft); }
+.task-row.is-important { background:transparent; }
+.task-row.is-important:hover { background:var(--soft); }
 .task-row.is-important .task-title { font-weight:600; }
+.task-title-button { cursor:pointer; }
 .task-checkbox { width:32px; height:32px; position:relative; border:0; border-radius:6px; margin:0; background:transparent; color:var(--accent); }
-.task-checkbox:before { content:""; position:absolute; inset:7px; border:1.5px solid var(--control-border); border-radius:4px; }
+.task-checkbox:before { content:""; position:absolute; inset:7px; border:1.5px solid var(--control-border); border-radius:4px; transition:background-color var(--dur-fast), border-color var(--dur-fast), transform var(--dur-fast) var(--ease-out); }
 .task-checkbox:hover { background:var(--hover); }
+.task-checkbox:hover:before { border-color:var(--accent); }
+.task-checkbox:active:before { transform:scale(.88); }
 .task-checkbox[aria-checked="true"] { background:transparent; border:0; color:var(--on-accent); }
 .task-checkbox[aria-checked="true"]:before { background:var(--accent); border-color:var(--accent); }
 .task-checkbox .icon { position:relative; z-index:1; }
+/* The mark is drawn along its stroke when the same control flips state; freshly
+   rendered rows show their final state without replaying it. */
+.task-checkbox .icon { stroke-dasharray:22; stroke-dashoffset:22; transition:stroke-dashoffset .2s var(--ease-out) .04s, opacity .05s; }
+.task-checkbox[aria-checked="true"] .icon { stroke-dashoffset:0; }
+.task-checkbox.is-toggling[aria-checked="true"]:before { animation:check-pop .26s var(--ease-out); }
+@keyframes check-pop { 0% { transform:scale(.8); } 55% { transform:scale(1.08); } 100% { transform:none; } }
+.task-row.is-new { animation:row-in .36s var(--ease-out); }
+@keyframes row-in { 0% { opacity:0; transform:translateY(-6px); background-color:var(--soft); } 45% { opacity:1; transform:none; background-color:var(--soft); } 100% { background-color:transparent; } }
+.task-more,.calendar-add { transition:opacity var(--dur-fast), background-color var(--dur-fast), color var(--dur-fast); }
+.handle-count,.handle-chevron { transition:opacity var(--dur-fast); }
+.detail-section summary::after { transition:transform .18s var(--ease-out), margin-top .18s var(--ease-out); }
 .task-title { font-size:14px; line-height:1.6; font-weight:400; color:var(--ink); }
 .task-meta { font-size:11px; height:auto; min-height:18px; overflow:visible; flex-wrap:wrap; gap:4px 8px; color:var(--secondary); }
 .task-meta .icon { width:12px; height:12px; }
@@ -162,14 +190,13 @@ body[data-wide="true"] .view-tabs { max-width:240px; }
 .edit-priority .icon { color:var(--accent); }
 
 .icon { stroke-width:1.8; }
-.brand-mark { width:32px; height:34px; border-radius:10px; }
+.brand-mark { width:32px; height:34px; padding:0; border-radius:10px; flex-shrink:0; }
 .brand-mark .icon { width:31px; height:31px; }
 .task-checkbox .icon { stroke-width:2.2; }
 .header-actions .icon-button .icon { width:18px; height:18px; }
 .icon-button:hover .icon { color:var(--accent); }
 
 [data-drag] { user-select:none; }
-.brand-mark { padding:0; flex-shrink:0; }
 
 
 /* Shared controls use the current theme, including the native picker surfaces. */
@@ -191,25 +218,6 @@ select { appearance: none; cursor: pointer; white-space: nowrap; overflow: hidde
 select option { color: var(--ink); background: var(--surface); }
 input[type="checkbox"] { accent-color: var(--accent); }
 
-.period-navigation { gap: 5px; min-height: 36px; }
-.period-navigation .icon-button { width: 32px; height: 32px; border: 1px solid transparent; }
-.period-navigation .icon-button:hover { border-color: var(--line); background: var(--soft); }
-.period-label { min-height: 34px; padding: 6px 9px; border-radius: 8px; }
-.period-label:hover { background: var(--soft); }
-#period-date {
-  top: 39px;
-  left: 38px;
-  height: var(--control-height);
-  padding: 0 9px;
-  border: 1px solid var(--field-border);
-  border-radius: var(--control-radius);
-  background: var(--surface);
-  color: var(--ink);
-  box-shadow: var(--shadow);
-  font-variant-numeric: tabular-nums;
-}
-
-.filter-bar { gap: 7px; height: 36px; }
 .filter-bar > select,
 .filter-bar > .filter-button,
 .filter-bar > .icon-button {
@@ -238,7 +246,6 @@ select.field-input { appearance: none; }
 .filter-bar > .filter-button:focus-visible,
 .filter-bar > .icon-button:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--control-focus); }
 #category-filter { min-width: 0; }
-#sort-select { width: 96px; flex-shrink: 0; }
 .filter-bar > .filter-button { justify-content: center; padding: 0 8px; white-space: nowrap; flex-shrink: 0; }
 .filter-bar > .filter-button[aria-expanded="true"],
 .filter-bar > .filter-button[data-active="true"],
@@ -264,7 +271,6 @@ select.field-input { appearance: none; }
 .search-box .icon { color: var(--secondary); }
 .search-box:focus-within > .icon { color: var(--accent); }
 .search-box .icon-button { width: 27px; height: 27px; }
-.search-options { gap: 8px; padding: 0 2px 8px; flex-wrap: wrap; }
 .search-options select {
   min-height: 30px;
   padding: 0 25px 0 9px;
@@ -277,13 +283,10 @@ select.field-input { appearance: none; }
   background-size: 5px 5px, 5px 5px;
 }
 .search-options select:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--control-focus); }
-.search-options label { gap: 5px; min-height: 30px; cursor: pointer; }
 
-.composer { padding: 6px 10px 4px; border-color: var(--field-border); border-radius: 10px; }
 .composer:hover { border-color: var(--secondary); }
 .composer:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--control-focus); }
 .composer:focus-within .composer-plus { color: var(--accent); }
-#task-title { height: 31px; font-size: 13px; }
 .add-button { width: 30px; height: 30px; border-radius: 8px; }
 .composer-options { margin-top: 2px; padding: 2px 0 0; border-top: 1px solid var(--line); }
 .option-chip,
@@ -383,6 +386,20 @@ select.field-input {
 }
 #period-date::-webkit-calendar-picker-indicator:hover { background: var(--soft); opacity: 1; }
 .popover { border-color: var(--line); box-shadow: 0 4px 8px #00000008, 0 12px 32px #0000001c; }
+/* Layered surfaces fade and settle into place; on the way out they stop taking
+   pointer input so whatever is underneath answers the next click. */
+.popover { transition:opacity var(--dur-fast) var(--ease-out), translate var(--dur-fast) var(--ease-out), display var(--dur-fast) allow-discrete, overlay var(--dur-fast) allow-discrete; }
+.popover:not(:popover-open) { opacity:0; translate:0 -4px; pointer-events:none; }
+@starting-style { .popover:popover-open { opacity:0; translate:0 -4px; } }
+.app-dialog { transition:opacity var(--dur-base) var(--ease-out), translate var(--dur-base) var(--ease-out), display var(--dur-base) allow-discrete, overlay var(--dur-base) allow-discrete; }
+.app-dialog:not([open]) { opacity:0; translate:0 8px; pointer-events:none; }
+@starting-style { .app-dialog[open] { opacity:0; translate:0 8px; } }
+.app-dialog::backdrop { transition:opacity var(--dur-base), display var(--dur-base) allow-discrete, overlay var(--dur-base) allow-discrete; }
+.app-dialog:not([open])::backdrop { opacity:0; }
+@starting-style { .app-dialog[open]::backdrop { opacity:0; } }
+.toast { transition:opacity var(--dur-base) var(--ease-out), translate var(--dur-base) var(--ease-out), display var(--dur-base) allow-discrete; }
+.toast[hidden] { opacity:0; translate:0 10px; pointer-events:none; }
+@starting-style { .toast:not([hidden]) { opacity:0; translate:0 10px; } }
 .popover-heading { font-size: 12px; }
 .popover-heading span { font-size: 11px; }
 .due-popover { width: 268px; padding: 14px; }

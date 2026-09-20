@@ -1,14 +1,14 @@
-import { addDays, describeDate, emptyState, groupTasks, localDate, REPEAT_LABELS, selectTasks, taskCounts } from './domain.mjs';
+import { addDays, describeDate, emptyState, formatPeriod, groupTasks, localDate, REPEAT_LABELS, selectTasks, taskCounts } from './domain.mjs';
 import { createBrowserBridge } from './browser-bridge.mjs';
 import { createTauriBridge } from './tauri-bridge.mjs';
 import { bindWindowGestures } from './window-gestures.mjs';
 import { calendarRange, shiftPeriod, periodSelection, CALENDAR_VIEWS } from './calendar.mjs';
 import { CalendarProjection, calendarGrid } from './calendar-ui.mjs';
-import { applyTheme, THEME_NAMES } from './themes.mjs';
+import { applyTheme, THEME_NAMES, MOTION_NAMES } from './themes.mjs';
 import { SidebarMotion } from './motion.mjs';
 import { TaskEditor } from './editor.mjs';
 import { TaxonomyManager } from './taxonomy.mjs';
-import { $, $$, el, icon, button, colorDot, options, message, toast, hideToast, bindToasts, Popovers } from './ui.mjs';
+import { $, $$, el, icon, button, colorDot, options, message, toast, hideToast, bindToasts, Popovers, EASE, reducedMotion } from './ui.mjs';
 
 let api, editor, manager, motion, popovers;
 let state = emptyState();
@@ -39,8 +39,15 @@ const earlyActions = [];
 const taskLocks = new Set();
 const openSubtasks = new Set();
 let taskIndex = new Map();
+let categoryIndex = new Map();
+let tagIndex = new Map();
 let dataSignature = '';
 const getTask = id => taskIndex.get(id);
+function buildIndexes() {
+  taskIndex = new Map(state.tasks.map(task => [task.id, task]));
+  categoryIndex = new Map(state.categories.map(item => [item.id, item]));
+  tagIndex = new Map(state.tags.map(item => [item.id, item]));
+}
 function applyState(next) {
   if (next === state) return;
   const signature = JSON.stringify([next.tasks, next.categories, next.tags]);
@@ -48,11 +55,35 @@ function applyState(next) {
   const statusChanged = next.settings.showCompleted !== state.settings.showCompleted;
   state = next;
   dataSignature = signature;
-  if (changed) taskIndex = new Map(state.tasks.map(task => [task.id, task]));
-  if (changed || statusChanged) render();
+  if (changed) buildIndexes();
+  if (changed || statusChanged) { if (renderHold) renderQueued = true; else render(); }
   else renderSettings();
 }
 const selectionOptions = () => ({ ...filters, today, view, categories: state.categories, tags: state.tags });
+
+// A row leaving the list finishes its exit before the new state replaces it.
+let renderHold = null;
+let renderQueued = false;
+function holdRender(promise) {
+  const hold = Promise.resolve(promise).catch(() => {}).then(() => {
+    if (renderHold !== hold) return;
+    renderHold = null;
+    if (renderQueued) { renderQueued = false; render(); }
+  });
+  renderHold = hold;
+}
+
+// Coalesce renders requested within one task, keeping the widest scope asked for.
+const RENDER_SCOPES = { tasks: 0, all: 1 };
+let pendingRender = null;
+function scheduleRender(scope = 'all') {
+  if (pendingRender === null) queueMicrotask(() => {
+    const requested = pendingRender;
+    pendingRender = null;
+    if (requested === 'all') render(); else renderTasks();
+  });
+  if (pendingRender === null || RENDER_SCOPES[scope] > RENDER_SCOPES[pendingRender]) pendingRender = scope;
+}
 
 function saveStatus(status) {
   const text = status === 'saving' ? '正在保存…' : status === 'error' ? '保存失败，请重试'
@@ -81,16 +112,21 @@ async function mutate(operation, target) {
   finally { pendingMutations--; updateInteraction(); }
 }
 
-function updateInteraction() {
-  if (!api) return;
+function positionDialogs() {
+  const open = $$('dialog[open]');
+  if (!open.length) return;
   const panelBounds = $('panel').getBoundingClientRect();
-  for (const dialog of $$('dialog[open]')) {
+  for (const dialog of open) {
     const box = dialog.getBoundingClientRect();
     dialog.style.transform = 'none';
     dialog.style.left = Math.max(8, Math.min(innerWidth - box.width - 8, panelBounds.x + (panelBounds.width - box.width) / 2)) + 'px';
     dialog.style.top = Math.max(8, Math.min(innerHeight - box.height - 8, panelBounds.y + (panelBounds.height - box.height) / 2)) + 'px';
   }
-  const active = Boolean(pendingMutations || adding || savingSettings || transferring || editor?.dirty || editor?.busy || composing || popovers?.active || $$('dialog[open]').length || $('task-title').value.trim());
+}
+
+function updateInteraction() {
+  if (!api) return;
+  const active = Boolean(pendingMutations || adding || savingSettings || transferring || editor?.dirty || editor?.busy || composing || popovers?.active || document.querySelector('dialog[open]') || $('task-title').value.trim());
   if (active !== interactionActive) {
     interactionActive = active;
     api.setInteractionActive(active).catch(() => {});
@@ -100,6 +136,7 @@ function updateInteraction() {
 function openDialog(id) {
   popovers.close();
   if (!$(id).open) $(id).showModal();
+  positionDialogs();
   updateInteraction();
 }
 
@@ -109,6 +146,7 @@ function renderWindow(value) {
     $$('dialog[open]').forEach(dialog => dialog.close());
   }
   motion.render(value);
+  positionDialogs();
 }
 
 function syncComposerDate() {
@@ -126,16 +164,26 @@ function setView(next) {
   renderLimit = 100; columnLimits.clear();
   $('task-scroll').scrollTop = 0;
   syncComposerDate();
-  render();
+  scheduleRender();
 }
 function chooseCalendarDate(date) {
   followToday = false;
-  const dateFocused = document.activeElement?.classList.contains('calendar-date');
-  const scroll = { top: $('task-scroll').scrollTop, left: $('task-scroll').scrollLeft };
+  const previous = selectedDate;
   selectedDate = date;
-  syncComposerDate(); render();
-  $('task-scroll').scrollTo(scroll);
-  if (dateFocused) $('task-list').querySelector('[data-date="' + date + '"] .calendar-date')?.focus({ preventScroll: true });
+  syncComposerDate();
+  const grid = $('task-list').querySelector('.calendar-grid');
+  if (!grid || previous === date) { render(); return; }
+  // Selection only moves a highlight inside an already rendered grid; keep
+  // every cell, its scroll position and the focused date button in place.
+  for (const [value, selected] of [[previous, false], [date, true]]) {
+    const cell = grid.querySelector('.calendar-day[data-date="' + CSS.escape(value) + '"]');
+    if (!cell) continue;
+    cell.classList.toggle('is-selected', selected);
+    cell.querySelector('.calendar-date')?.setAttribute('aria-pressed', String(selected));
+  }
+  $('period-date').value = selectedDate;
+  renderCounts();
+  renderComposer();
 }
 function resetComposer() {
   composerDateExplicit = false;
@@ -206,7 +254,7 @@ function clearFilters() {
   $('search-input').value = '';
   inheritFilters();
   renderLimit = 100;
-  render();
+  scheduleRender();
 }
 
 function ensureVisible(task) {
@@ -221,9 +269,9 @@ function ensureVisible(task) {
 
 function focusComposer() {
   const focus = () => {
-    if (editor.isOpen) editor.close();
+    const closed = editor.isOpen ? editor.close() : Promise.resolve();
     if (document.body.dataset.expanded !== 'true') { pendingFocus = true; api.toggle().catch(reportError); return; }
-    $('task-title').focus();
+    closed.then(() => $('task-title').focus());
   };
   editor.isOpen ? editor.leave(focus) : focus();
 }
@@ -245,25 +293,73 @@ function deletionToast(response) {
   });
 }
 
+// Lock only the affected row's controls while its mutation is in flight. The
+// state change that follows re-renders the list on its own.
+function setRowBusy(id, busy) {
+  if (busy) taskLocks.add(id); else taskLocks.delete(id);
+  const selector = '[data-task-id="' + CSS.escape(id) + '"]';
+  for (const row of $$('#task-list ' + selector + ', #day-tasks ' + selector)) {
+    for (const control of row.querySelectorAll('.task-checkbox, .inline-subtask input')) {
+      if (busy) control.disabled = true;
+      else if (control.matches('.task-checkbox')) control.disabled = false;
+      else control.disabled = row.classList.contains('is-completed');
+    }
+  }
+}
+const rowNodes = id => $$('[data-task-id="' + CSS.escape(id) + '"]').filter(node => node.matches('.task-row, .calendar-entry'));
+// The check mark answers the click at once; the saved state re-renders after.
+function setRowChecked(id, checked) {
+  for (const row of rowNodes(id)) for (const box of row.querySelectorAll('.task-checkbox')) {
+    box.classList.add('is-toggling');
+    box.setAttribute('aria-checked', String(checked));
+  }
+}
+function rowExit(id) {
+  const rows = rowNodes(id);
+  if (!rows.length || reducedMotion()) return null;
+  const animations = rows.map(row => {
+    row.style.overflow = 'hidden';
+    return row.animate([{ opacity: 1, height: row.offsetHeight + 'px' },
+      { opacity: 0, height: '0px', minHeight: '0px', paddingTop: '0px', paddingBottom: '0px', marginBottom: '0px' }],
+    { duration: 180, easing: EASE, fill: 'forwards' });
+  });
+  return {
+    done: Promise.all(animations.map(animation => animation.finished)).catch(() => {}),
+    cancel: () => { animations.forEach(animation => animation.cancel()); rows.forEach(row => { row.style.overflow = ''; }); },
+  };
+}
+function highlightRow(id) {
+  if (reducedMotion()) return;
+  for (const row of $$('#task-list [data-task-id="' + CSS.escape(id) + '"]')) {
+    row.classList.add('is-new');
+    row.addEventListener('animationend', () => row.classList.remove('is-new'), { once: true });
+  }
+}
+
 async function toggleTask(task) {
   if (taskLocks.has(task.id)) return;
-  taskLocks.add(task.id);
-  renderTasks();
+  const completing = !task.completedAt;
+  const leaving = completing ? (!state.settings.showCompleted || view === 'overdue') : view === 'completed';
+  setRowBusy(task.id, true);
+  setRowChecked(task.id, completing);
+  const exit = leaving ? rowExit(task.id) : null;
+  // Let the check mark finish drawing before the saved state redraws the row.
+  if (exit) holdRender(exit.done);
+  else if (!reducedMotion()) holdRender(new Promise(resolve => setTimeout(resolve, 260)));
   try {
-    const response = await mutate(() => api.updateTask(task.id, { completed: !task.completedAt }, task.updatedAt));
+    const response = await mutate(() => api.updateTask(task.id, { completed: completing }, task.updatedAt));
     if (task.completedAt) toast(task.seriesId ? '已作为普通任务重新打开' : '已放回待办');
     else completionToast(response);
-  } catch { /* Keep the current saved state. */ }
-  finally { taskLocks.delete(task.id); renderTasks(); }
+  } catch { setRowChecked(task.id, !completing); exit?.cancel(); }
+  finally { setRowBusy(task.id, false); }
 }
 
 async function patchRow(task, patch) {
   if (taskLocks.has(task.id)) return;
-  taskLocks.add(task.id);
-  renderTasks();
+  setRowBusy(task.id, true);
   try { await mutate(() => api.updateTask(task.id, patch, task.updatedAt)); }
   catch { /* Already reported. */ }
-  finally { taskLocks.delete(task.id); renderTasks(); }
+  finally { setRowBusy(task.id, false); }
 }
 
 function openDate(task, trigger) {
@@ -310,7 +406,9 @@ function taskMenu(task, trigger) {
     button('调整日期', '', act(() => openDate(getTask(task.id), trigger)), 'calendar'),
     button(task.priority === 'high' ? '取消重要标记' : '标记为重要', '', act(() => { void patchRow(getTask(task.id), { priority: task.priority === 'high' ? 'normal' : 'high' }); }), 'flag'),
     button(task.recurrence && !task.completedAt ? '删除并停止重复' : '删除任务', 'danger', act(async () => {
-      try { deletionToast(await mutate(() => api.deleteTask(task.id))); } catch { /* Already reported. */ }
+      const exit = rowExit(task.id);
+      if (exit) holdRender(exit.done);
+      try { deletionToast(await mutate(() => api.deleteTask(task.id))); } catch { exit?.cancel(); }
     }), 'trash'),
   );
   for (const item of menu.children) item.append(document.createTextNode(item.getAttribute('aria-label')));
@@ -343,7 +441,7 @@ function taskRow(task) {
   date.dataset.taskId = task.id;
   date.disabled = Boolean(task.completedAt);
   meta.append(date);
-  const category = state.categories.find(item => item.id === task.categoryId);
+  const category = categoryIndex.get(task.categoryId);
   if (category) {
     const label = el('span', 'task-category');
     label.title = category.name;
@@ -374,7 +472,7 @@ function taskRow(task) {
     marker.append(icon(symbol), el('span', 'sr-only', label));
     meta.append(marker);
   }
-  const tags = state.tags.filter(tag => task.tagIds.includes(tag.id));
+  const tags = task.tagIds.map(id => tagIndex.get(id)).filter(Boolean);
   for (const tag of tags.slice(0, 2)) {
     const label = el('span', 'task-tag', '#' + tag.name);
     label.title = tag.name;
@@ -390,6 +488,13 @@ function taskRow(task) {
   more.dataset.action = 'more';
   more.dataset.taskId = task.id;
   row.append(checkbox, body, more);
+  // The row itself opens the editor, matching calendar cells. Controls keep
+  // their own actions and text selection inside the title is left alone.
+  row.addEventListener('click', event => {
+    if (event.target.closest('button, input, label, a, select, textarea')) return;
+    if (getSelection()?.toString()) return;
+    editor.open(getTask(task.id));
+  });
   if (openSubtasks.has(task.id)) {
     const children = el('div', 'task-subtasks');
     for (const item of task.subtasks) {
@@ -487,7 +592,7 @@ function renderComposer() {
   $('due-trigger').dataset.active = String(Boolean(composer.dueDate));
   $('priority-trigger').setAttribute('aria-pressed', String(composer.priority === 'high'));
   options($('composer-category'), state.categories, composer.categoryId ?? 'none', [{ value: 'none', label: '未分类' }]);
-  $('composer-tags-label').textContent = composer.tagIds.length ? state.tags.filter(tag => composer.tagIds.includes(tag.id)).map(tag => tag.name).join('、') : '标签';
+  $('composer-tags-label').textContent = composer.tagIds.length ? composer.tagIds.map(id => tagIndex.get(id)?.name).filter(Boolean).join('、') : '标签';
   $('composer-tags-trigger').dataset.active = String(composer.tagIds.length > 0);
   $('add-task').disabled = adding || !$('task-title').value.trim();
   for (const id of ['task-title', 'due-trigger', 'priority-trigger', 'composer-category', 'composer-tags-trigger', 'composer-detail']) $(id).disabled = adding;
@@ -513,19 +618,15 @@ function renderSettings() {
   }
   if (!info.canLaunchAtLogin) $('startup-help').textContent = '在 Windows 安装版或便携版中启用';
   $$('[data-theme-choice]').forEach(button => { button.setAttribute('aria-pressed', String(button.dataset.themeChoice === settings.themePreset)); button.disabled = savingSettings; });
+  $$('[data-motion-choice]').forEach(button => { button.setAttribute('aria-pressed', String(button.dataset.motionChoice === settings.motionStyle)); button.disabled = savingSettings; });
+  document.body.dataset.motion = settings.motionStyle;
   $('app-version').textContent = info.version;
   $('data-folder').hidden = !info.canOpenDataFolder;
   $('export-data').disabled = transferring;
   $('import-data').disabled = transferring;
 }
 
-function render() {
-  if (!ready) return;
-  if (filters.categoryId && !state.categories.some(item => item.id === filters.categoryId)) filters.categoryId = undefined;
-  if (composer.categoryId && !state.categories.some(item => item.id === composer.categoryId)) composer.categoryId = null;
-  filters.tagIds = filters.tagIds.filter(id => state.tags.some(item => item.id === id));
-  composer.tagIds = composer.tagIds.filter(id => state.tags.some(item => item.id === id));
-  applyTheme(settingsDraft?.themePreset ?? state.settings.themePreset);
+function renderCounts() {
   const counts = taskCounts(state.tasks, today, selectionOptions());
   const pendingMatches = selectTasks(state.tasks, { ...selectionOptions(), view: 'all' });
   const displayedMatches = selectTasks(state.tasks, { ...selectionOptions(), view: 'all', includeCompleted: state.settings.showCompleted });
@@ -536,37 +637,54 @@ function render() {
   }
   $('count-overdue').textContent = pendingMatches.filter(task => task.dueDate && task.dueDate < today).length;
   $('count-unscheduled').textContent = displayedMatches.filter(task => !task.dueDate).length;
+  $$('button[data-view]').forEach(tab => {
+    const count = counts[tab.dataset.view];
+    if ($('count-' + tab.dataset.view)) $('count-' + tab.dataset.view).textContent = count > 99 ? '99+' : String(count);
+  });
+  const pending = state.tasks.filter(task => !task.completedAt).length;
+  $('handle-count').textContent = pending > 99 ? '99+' : String(pending);
+  $('edge-handle').dataset.count = String(pending);
+  motion?.updateHandleLabel();
+}
+
+function renderFilterSummary() {
+  const parts = [filters.categoryId === null ? '未分类' : categoryIndex.get(filters.categoryId)?.name,
+    filters.tagIds.length ? filters.tagIds.length + ' 个标签' : null, filters.search ? '“' + filters.search + '”' : null, filters.taskIds ? '提醒中的任务' : null].filter(Boolean);
+  $('active-filter').hidden = !parts.length;
+  $('active-filter-label').textContent = parts.join(' · ');
+}
+
+function render() {
+  if (!ready) return;
+  if (filters.categoryId && !categoryIndex.has(filters.categoryId)) filters.categoryId = undefined;
+  if (composer.categoryId && !categoryIndex.has(composer.categoryId)) composer.categoryId = null;
+  filters.tagIds = filters.tagIds.filter(id => tagIndex.has(id));
+  composer.tagIds = composer.tagIds.filter(id => tagIndex.has(id));
+  applyTheme(settingsDraft?.themePreset ?? state.settings.themePreset);
+  renderCounts();
   const isCalendar = CALENDAR_VIEWS.includes(view);
   document.body.dataset.view = view;
   document.body.dataset.wide = String(['week', 'month'].includes(view));
   $('period-navigation').hidden = !isCalendar;
-  $('period-label').textContent = view === 'month' ? anchorDate.slice(0, 4) + '年' + Number(anchorDate.slice(5, 7)) + '月' : view === 'week' ? calendarRange(view, anchorDate).start + ' — ' + calendarRange(view, anchorDate).end.slice(5) : selectedDate;
+  $('period-label').textContent = isCalendar ? formatPeriod(view, anchorDate, selectedDate, today) : '';
+  $('period-label').title = view === 'day' ? selectedDate + '，点击选择日期' : '点击选择日期';
   $('period-date').value = selectedDate;
   $('more-views-trigger').firstChild.textContent = isCalendar ? '更多视图' : ({ all: state.settings.showCompleted ? '全部任务' : '全部待办', completed: '已完成', overdue: '逾期任务', unscheduled: '未安排' }[view] ?? '更多视图');
 
   $('tab-all').firstChild.textContent = (state.settings.showCompleted ? '全部任务' : '全部待办') + ' ';
   $('search-scope').querySelector('[value="all"]').textContent = state.settings.showCompleted ? '全部任务' : '全部待办';
-  const pending = state.tasks.filter(task => !task.completedAt).length;
-  $('handle-count').textContent = pending > 99 ? '99+' : String(pending);
-  $('edge-handle').dataset.count = String(pending);
-  motion?.updateHandleLabel();
   $('current-date').textContent = today.replaceAll('-', '.');
   $('weekday').textContent = new Intl.DateTimeFormat('zh-CN', { weekday: 'short' }).format(new Date(today + 'T12:00:00'));
   $$('button[data-view]').forEach(tab => {
     const active = tab.dataset.view === view;
     tab.setAttribute('aria-selected', String(active));
     tab.tabIndex = active ? 0 : -1;
-    const count = counts[tab.dataset.view];
-    if ($('count-' + tab.dataset.view)) $('count-' + tab.dataset.view).textContent = count > 99 ? '99+' : String(count);
   });
   options($('category-filter'), state.categories, filters.categoryId === undefined ? 'all' : filters.categoryId ?? 'none', [{ value: 'all', label: '全部分类' }, { value: 'none', label: '未分类' }]);
   $('tag-filter-label').textContent = filters.tagIds.length ? filters.tagIds.length + ' 标签' : '标签';
   $('tag-filter-trigger').dataset.active = String(filters.tagIds.length > 0);
   $('sort-select').value = filters.sort;
-  const parts = [filters.categoryId === null ? '未分类' : state.categories.find(item => item.id === filters.categoryId)?.name,
-    filters.tagIds.length ? filters.tagIds.length + ' 个标签' : null, filters.search ? '“' + filters.search + '”' : null, filters.taskIds ? '提醒中的任务' : null].filter(Boolean);
-  $('active-filter').hidden = !parts.length;
-  $('active-filter-label').textContent = parts.join(' · ');
+  renderFilterSummary();
   renderComposer();
   renderTagChoices('filter-tags-list', filters.tagIds, (id, checked) => {
     filters.tagIds = checked ? [...filters.tagIds, id] : filters.tagIds.filter(tag => tag !== id);
@@ -574,7 +692,7 @@ function render() {
   });
   renderTagChoices('composer-tags-list', composer.tagIds, (id, checked) => {
     composer.tagIds = checked ? [...composer.tagIds, id] : composer.tagIds.filter(tag => tag !== id);
-    render();
+    renderComposer();
   });
   renderTasks();
   renderSettings();
@@ -672,7 +790,7 @@ function bindEvents() {
       $('task-title').value = '';
       resetComposer();
       popovers.close();
-      ensureVisible(response.result);
+      if (!ensureVisible(response.result)) highlightRow(response.result.id);
     } catch { /* Keep the entire draft for retry. */ }
     finally { adding = false; renderComposer(); updateInteraction(); $('task-title').focus(); }
   });
@@ -680,7 +798,19 @@ function bindEvents() {
   function closeSearch() { searchScope = 'view'; $('search-scope').value = 'view'; $('search-box').hidden = true; $('search-options').hidden = true; $('search-toggle').setAttribute('aria-expanded', 'false'); filters.search = ''; $('search-input').value = ''; render(); }
   $('search-toggle').addEventListener('click', () => $('search-box').hidden ? showSearch() : closeSearch());
   $('search-close').addEventListener('click', () => { closeSearch(); $('search-toggle').focus(); });
-  $('search-input').addEventListener('input', () => { filters.search = $('search-input').value; renderLimit = 100; render(); });
+  // Typing only narrows the visible list; the filter chrome, composer and
+  // settings stay untouched. Composition sessions apply once they end.
+  const applySearch = () => {
+    const next = $('search-input').value;
+    if (next === filters.search) return;
+    filters.search = next;
+    renderLimit = 100;
+    renderCounts();
+    renderFilterSummary();
+    renderTasks();
+  };
+  $('search-input').addEventListener('input', () => { if (!composing) applySearch(); });
+  $('search-input').addEventListener('compositionend', applySearch);
   $$('button[data-view]').forEach(tab => {
     tab.addEventListener('click', () => setView(tab.dataset.view));
     tab.addEventListener('keydown', event => {
@@ -702,6 +832,26 @@ function bindEvents() {
     else if (view === 'completed') setView('all');
     else focusComposer();
   });
+  // Arrow keys walk the list by its completion controls; Enter opens the row.
+  $('task-list').addEventListener('keydown', event => {
+    if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End', 'Enter'].includes(event.key)) return;
+    if (event.target.closest('input, textarea, select') && event.key === 'Enter') return;
+    const row = event.target.closest('.task-row');
+    if (event.key === 'Enter') {
+      if (!row || event.target.closest('button, a')) return;
+      event.preventDefault();
+      editor.open(getTask(row.dataset.taskId));
+      return;
+    }
+    const checkboxes = $$('#task-list .task-row .task-checkbox');
+    if (!checkboxes.length) return;
+    const current = row ? checkboxes.findIndex(box => box.closest('.task-row') === row) : -1;
+    let index = event.key === 'Home' ? 0 : event.key === 'End' ? checkboxes.length - 1
+      : event.key === 'ArrowDown' ? Math.min(checkboxes.length - 1, current + 1) : Math.max(0, current < 0 ? 0 : current - 1);
+    event.preventDefault();
+    checkboxes[index].focus();
+  });
   $$('[data-close]').forEach(button => button.addEventListener('click', () => $(button.dataset.close).close()));
   $$('dialog').forEach(dialog => dialog.addEventListener('close', updateInteraction));
   for (const [id, key] of [['setting-pin', 'alwaysOnTop'], ['setting-collapse', 'autoCollapse'], ['setting-startup', 'launchAtLogin']]) $(id).addEventListener('change', event => { void changeSettings({ [key]: event.target.checked }); });
@@ -720,6 +870,14 @@ function bindEvents() {
     choice.dataset.themeChoice = key; choice.append(el('span', 'theme-swatch'));
     $('theme-presets').append(choice);
   }
+  for (const [key, name] of Object.entries(MOTION_NAMES)) {
+    const choice = button(name, 'motion-choice motion-' + key, () => { void changeSettings({ motionStyle: key }); });
+    choice.dataset.motionChoice = key;
+    const swatch = el('span', 'motion-swatch');
+    swatch.append(el('i', 'motion-swatch-handle'), el('i', 'motion-swatch-panel'));
+    choice.prepend(swatch);
+    $('motion-presets').append(choice);
+  }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(state.settings.themePreset));
   $('more-views-trigger').addEventListener('click', () => popovers.open('more-views', $('more-views-trigger')));
   $('backlog-overdue').addEventListener('click', () => setView('overdue'));
@@ -729,8 +887,24 @@ function bindEvents() {
     selectedDate = periodSelection(view, anchorDate, today); syncComposerDate(); columnLimits.clear(); renderLimit = 100; render();
   });
   $('period-today').addEventListener('click', () => { followToday = true; selectedDate = anchorDate = today; syncComposerDate(); render(); });
-  $('period-label').addEventListener('click', () => { $('period-date').hidden = !$('period-date').hidden; if (!$('period-date').hidden) $('period-date').focus(); });
-  $('period-date').addEventListener('change', event => { if (!event.target.value || !event.target.validity.valid) return; followToday = false; selectedDate = anchorDate = event.target.value; syncComposerDate(); render(); });
+  $('period-label').addEventListener('click', () => {
+    const input = $('period-date');
+    // The native picker keeps the page tidy; browsers without it fall back to
+    // the inline field so the date stays reachable.
+    if (typeof input.showPicker === 'function') {
+      input.hidden = false; input.classList.add('is-picker-only');
+      try { input.showPicker(); return; }
+      catch { input.classList.remove('is-picker-only'); input.focus(); return; }
+    }
+    input.hidden = !input.hidden;
+    if (!input.hidden) input.focus();
+  });
+  $('period-date').addEventListener('blur', () => { if ($('period-date').classList.contains('is-picker-only')) { $('period-date').hidden = true; $('period-date').classList.remove('is-picker-only'); } });
+  $('period-date').addEventListener('change', event => {
+    if (!event.target.value || !event.target.validity.valid) return;
+    followToday = false; selectedDate = anchorDate = event.target.value; syncComposerDate(); render();
+    if (event.target.classList.contains('is-picker-only')) { event.target.hidden = true; event.target.classList.remove('is-picker-only'); $('period-label').focus(); }
+  });
   $('search-scope').addEventListener('change', event => { searchScope = event.target.value; renderLimit = 100; render(); });
   $('show-completed').addEventListener('change', event => { renderLimit = 100; columnLimits.clear(); void changeSettings({ showCompleted: event.target.checked }); });
   $('day-dialog').addEventListener('close', () => $('day-tasks').replaceChildren());
@@ -770,7 +944,7 @@ function bindEvents() {
     if (command && event.key.toLowerCase() === 'n') { event.preventDefault(); focusComposer(); }
     if (command && event.key.toLowerCase() === 'f') {
       event.preventDefault();
-      const open = () => { if (editor.isOpen) editor.close(); showSearch(); };
+      const open = () => { (editor.isOpen ? editor.close() : Promise.resolve()).then(showSearch); };
       editor.isOpen ? editor.leave(open) : open();
     }
   });
@@ -804,13 +978,13 @@ async function boot() {
     },
     manageTags: () => manager.open('tags'),
     onSaved: (response, { created }) => {
-      if (created) { $('task-title').value = ''; resetComposer(); renderComposer(); updateInteraction(); if (ensureVisible(response.result)) return; }
+      if (created) { $('task-title').value = ''; resetComposer(); renderComposer(); updateInteraction(); if (ensureVisible(response.result)) return; highlightRow(response.result.id); }
       if (response.undoToken) completionToast(response);
       else toast(created ? '任务已添加' : '修改已保存');
     },
     onDeleted: deletionToast,
   });
-  motion = new SidebarMotion(api, { onSettled: value => {
+  motion = new SidebarMotion(api, { getStyle: () => settingsDraft?.motionStyle ?? state.settings.motionStyle, onSettled: value => {
     if (value.expanded && pendingFocus) { pendingFocus = false; $('task-title').focus(); }
     updateInteraction();
   } });

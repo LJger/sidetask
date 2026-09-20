@@ -214,6 +214,37 @@ test('the list occupies most of both regular and small windows and remains keybo
   await page.screenshot({ path: test.info().outputPath('small-screen.png'), animations: 'disabled' });
 });
 
+test('rows open from blank space, arrow keys walk the list, and Ctrl+Enter saves details', async ({ page }) => {
+  await add(page, '第一条');
+  await add(page, '第二条');
+  await page.locator('.task-row').filter({ hasText: '第一条' }).click({ position: { x: 3, y: 3 } });
+  await expect(page.locator('#task-detail')).toBeVisible();
+  await expect(page.locator('#edit-title')).toHaveValue('第一条');
+  await section(page, '#notes-section');
+  await page.locator('#edit-notes').fill('用快捷键保存');
+  await page.locator('#edit-notes').press('Control+Enter');
+  await expect(page.locator('#task-detail')).toBeHidden();
+  await expect(page.locator('#toast-message')).toHaveText('修改已保存');
+  expect((await saved(page)).tasks.find(task => task.title === '第一条').notes).toBe('用快捷键保存');
+  // Both tasks share the frozen clock, so walk the list by its rendered order.
+  const boxes = page.locator('#task-list .task-checkbox');
+  await expect(boxes).toHaveCount(2);
+  const firstTitle = await page.locator('#task-list .task-title').first().textContent();
+  await boxes.first().focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(boxes.nth(1)).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(boxes.nth(1)).toBeFocused();
+  await page.keyboard.press('Home');
+  await expect(boxes.first()).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#edit-title')).toHaveValue(firstTitle);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#task-detail')).toBeHidden();
+  await expect(page.locator('.task-title-button').first()).not.toHaveAttribute('title', /^编辑：/);
+  await expect(page.locator('.task-more').first()).toHaveAttribute('title', /^更多操作：/);
+});
+
 test('select menus support keyboard dismissal without closing the sidebar or editor draft', async ({ page }) => {
   await page.locator('#category-filter').click();
   await page.keyboard.press('ArrowDown');
@@ -380,6 +411,7 @@ test('large lists render in batches and retain scroll position when returning fr
   const scroll = await page.locator('#task-scroll').evaluate(node => node.scrollTop);
   await page.getByRole('button', { name: '编辑：任务 130', exact: true }).click();
   await page.locator('#detail-back').click();
+  await expect(page.locator('#task-detail')).toBeHidden();
   expect(Math.abs(await page.locator('#task-scroll').evaluate(node => node.scrollTop) - scroll)).toBeLessThan(3);
   await page.locator('#search-toggle').click();
   await page.locator('#search-input').fill('任务 249');

@@ -72,6 +72,8 @@ pub struct Settings {
     pub auto_collapse: bool,
     pub launch_at_login: bool,
     pub theme_preset: String,
+    #[serde(default = "default_motion_style")]
+    pub motion_style: String,
     #[serde(default = "default_handle_opacity")]
     pub collapsed_handle_opacity: f64,
     #[serde(default = "default_panel_opacity")]
@@ -84,6 +86,10 @@ pub struct Settings {
 
 fn default_handle_opacity() -> f64 {
     0.8
+}
+
+fn default_motion_style() -> String {
+    "slide".into()
 }
 
 fn default_panel_opacity() -> f64 {
@@ -101,6 +107,7 @@ impl Default for Settings {
             auto_collapse: true,
             launch_at_login: false,
             theme_preset: "pine".into(),
+            motion_style: default_motion_style(),
             collapsed_handle_opacity: default_handle_opacity(),
             panel_opacity: default_panel_opacity(),
             show_completed: default_show_completed(),
@@ -318,6 +325,7 @@ pub fn validate_settings(patch: &Value, previous: &Settings) -> Result<Settings>
         "autoCollapse",
         "launchAtLogin",
         "themePreset",
+        "motionStyle",
         "collapsedHandleOpacity",
         "panelOpacity",
         "showCompleted",
@@ -343,6 +351,9 @@ pub fn validate_settings(patch: &Value, previous: &Settings) -> Result<Settings>
     let settings: Settings = serde_json::from_value(settings).map_err(|_| "设置值无效。")?;
     if !["pine", "mist", "sand", "graphite", "system"].contains(&settings.theme_preset.as_str()) {
         return Err("主题无效。".into());
+    }
+    if !["slide", "fade", "pop", "reveal"].contains(&settings.motion_style.as_str()) {
+        return Err("展开方式无效。".into());
     }
     if !settings.collapsed_handle_opacity.is_finite()
         || !(0.2..=1.0).contains(&settings.collapsed_handle_opacity)

@@ -31,6 +31,42 @@ test('four themes persist without changing window position or unsaved input', as
   await expect(page.locator('html')).toHaveAttribute('data-theme','graphite');
 });
 
+for (const reducedMotion of ['no-preference', 'reduce']) {
+  test('every opening style persists and settles the panel fully visible: ' + reducedMotion, async ({page}) => {
+    await page.emulateMedia({ reducedMotion });
+    await seed(page, { ...emptyState(), tasks: [make('kept', { title: '保留任务' })] });
+    await page.locator('#settings-open').click();
+    await expect(page.locator('[data-motion-choice="slide"]')).toHaveAttribute('aria-pressed', 'true');
+    for (const style of ['fade', 'pop', 'reveal', 'slide']) {
+      await page.locator('[data-motion-choice="' + style + '"]').click();
+      await expect(page.locator('[data-motion-choice="' + style + '"]')).toHaveAttribute('aria-pressed', 'true');
+      await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('sidetask.preview.v3'))?.settings.motionStyle)).toBe(style);
+    }
+    await page.locator('[data-close="settings-dialog"]').click();
+    for (const style of ['fade', 'pop', 'reveal', 'slide']) {
+      await page.evaluate(value => window.sideTask.setSettings({ motionStyle: value }), style);
+      await expect(page.locator('body')).toHaveAttribute('data-motion', style);
+      for (const dock of ['right', 'top']) {
+        await page.evaluate(edge => window.sideTask.setSettings({ windowPlacement: { mode: 'docked', edge, anchor: 0.5, displayId: null, floatCenter: { x: 0.5, y: 0.5 } } }), dock);
+        await expect(page.locator('body')).toHaveAttribute('data-dock', dock);
+        await page.locator('#collapse-button').click();
+        await expect(page.locator('body')).toHaveAttribute('data-phase', 'collapsed');
+        await assertVisibleHandle(page);
+        await clickVisibleHandle(page);
+        await expect(page.locator('body')).toHaveAttribute('data-phase', 'expanded');
+        const settled = await page.locator('#panel').evaluate(panel => {
+          const identity = value => value === 'none' || value === 'matrix(1, 0, 0, 1, 0, 0)';
+          const computed = getComputedStyle(panel);
+          return { opacity: computed.opacity, transform: identity(computed.transform), clip: computed.clipPath, animations: panel.getAnimations().length,
+            drawer: identity(getComputedStyle(document.getElementById('drawer')).transform) };
+        });
+        expect(settled).toEqual({ opacity: '1', transform: true, clip: 'inset(0px)', animations: 0, drawer: true });
+        await expect(page.locator('.task-title')).toHaveText('保留任务');
+      }
+    }
+  });
+}
+
 test('day week month share selected dates, and repeat previews stay outside storage and counts', async ({page}) => {
   await seed(page,{...emptyState(),tasks:[make('daily',{title:'每日回顾',recurrence:{frequency:'daily',anchorDate:'2026-09-08',until:'2026-09-20'},seriesId:'daily'})]});
   await page.locator('#tab-week').click();
@@ -46,7 +82,7 @@ test('day week month share selected dates, and repeat previews stay outside stor
   await expect(page.locator('.calendar-day')).toHaveCount(42);
   await page.locator('[data-date="2026-09-15"] .calendar-date').click();
   await page.locator('#tab-day').click();
-  await expect(page.locator('#period-label')).toHaveText('2026-09-15');
+  await expect(page.locator('#period-label')).toHaveText('9月15日 周二');
   await expect(page.locator('.preview-row')).toHaveCount(1);
   await expect(page.locator('#composer-date-label')).toContainText('9月15日');
   await page.locator('#task-title').fill('选中日期新增');

@@ -3,6 +3,7 @@
 :root[data-theme="sand"] { --canvas:#F7F3EB; --surface:#FFFCF5; --ink:#332F28; --secondary:#6B6256; --accent:#745C30; --danger:#A34732; --on-accent:#FFFFFF; }
 :root[data-theme="graphite"] { --canvas:#202427; --surface:#2A3034; --ink:#EFF2F3; --secondary:#B2BCC3; --accent:#9BC7B0; --danger:#F0A08C; --on-accent:#17261E; }
 :root { --green:var(--accent); --green-dark:var(--accent); --muted:var(--secondary); --paper:var(--canvas); --line:color-mix(in srgb,var(--secondary) 22%,var(--surface)); --control-border:color-mix(in srgb,var(--secondary) 80%,var(--surface)); --soft:color-mix(in srgb,var(--accent) 7%,var(--surface)); --hover:color-mix(in srgb,var(--accent) 12%,var(--surface)); --shadow:0 8px 32px #00000018; color:var(--ink); }
+:root { --ease-out:cubic-bezier(.22,1,.36,1); --dur-fast:140ms; --dur-base:200ms; }
 .primary-button,.add-button,.brand-mark,.edge-handle { background:var(--accent); color:var(--on-accent); }
 .primary-button:hover,.edge-handle:hover { background:color-mix(in srgb,var(--accent) 85%,var(--ink)); }
 .toast { background:var(--ink); color:var(--surface); }
@@ -23,3 +24,21 @@ input::placeholder,textarea::placeholder { color:var(--secondary); opacity:1; }
 .theme-sand { --swatch-base:#F7F3EB; --swatch-accent:#745C30; }
 .theme-graphite { --swatch-base:#202427; --swatch-accent:#9BC7B0; }
 .theme-system { --swatch-base:#F7F8FA; --swatch-accent:#202427; }
+.motion-setting { align-items:flex-start; }
+.motion-presets { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; flex-shrink:0; }
+.motion-choice { display:flex; align-items:center; gap:7px; padding:6px 8px 6px 6px; background:var(--surface); border:1px solid var(--line); border-radius:8px; font-size:12px; color:var(--secondary); white-space:nowrap; }
+.motion-choice:hover { border-color:var(--control-border); color:var(--ink); }
+.motion-choice[aria-pressed="true"] { outline:2px solid var(--accent); outline-offset:0; color:var(--accent); }
+.motion-swatch { position:relative; display:block; width:30px; height:20px; border-radius:4px; overflow:hidden; background:color-mix(in srgb,var(--secondary) 12%,var(--surface)); flex-shrink:0; }
+.motion-swatch i { position:absolute; display:block; }
+.motion-swatch-handle { right:0; top:6px; width:5px; height:8px; border-radius:2px 0 0 2px; background:var(--accent); }
+.motion-swatch-panel { right:5px; top:2px; width:18px; height:16px; border-radius:3px; background:var(--surface); border:1px solid var(--control-border); transform-origin:100% 50%; }
+.motion-choice:is(:hover,:focus-visible,[aria-pressed="true"]) .motion-swatch-panel { animation:1.6s ease-out infinite; }
+.motion-slide:is(:hover,:focus-visible,[aria-pressed="true"]) .motion-swatch-panel { animation-name:swatch-slide; }
+.motion-fade:is(:hover,:focus-visible,[aria-pressed="true"]) .motion-swatch-panel { animation-name:swatch-fade; }
+.motion-pop:is(:hover,:focus-visible,[aria-pressed="true"]) .motion-swatch-panel { animation-name:swatch-pop; }
+.motion-reveal:is(:hover,:focus-visible,[aria-pressed="true"]) .motion-swatch-panel { animation-name:swatch-reveal; }
+@keyframes swatch-slide { 0%,15% { transform:translateX(18px); opacity:0; } 45%,70% { transform:none; opacity:1; } 100% { transform:translateX(18px); opacity:0; } }
+@keyframes swatch-fade { 0%,15% { transform:scale(.96); opacity:0; } 45%,70% { transform:none; opacity:1; } 100% { transform:scale(.96); opacity:0; } }
+@keyframes swatch-pop { 0%,15% { transform:scale(.4); opacity:0; } 45% { transform:scale(1.04); opacity:1; } 55%,70% { transform:none; opacity:1; } 100% { transform:scale(.4); opacity:0; } }
+@keyframes swatch-reveal { 0%,15% { clip-path:inset(0 0 0 100%); opacity:.6; } 45%,70% { clip-path:inset(0); opacity:1; } 100% { clip-path:inset(0 0 0 100%); opacity:.6; } }
