@@ -839,7 +839,9 @@ function bindEvents() {
     if (event.target.closest('input, textarea, select') && event.key === 'Enter') return;
     const row = event.target.closest('.task-row');
     if (event.key === 'Enter') {
-      if (!row || event.target.closest('button, a')) return;
+      // Focus walks the completion checkboxes, so Enter there opens the row
+      // instead of activating the button; Space still toggles completion.
+      if (!row || (event.target.closest('button, a') && !event.target.matches('.task-checkbox'))) return;
       event.preventDefault();
       editor.open(getTask(row.dataset.taskId));
       return;
