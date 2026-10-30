@@ -1,5 +1,5 @@
 import { COLORS } from './domain.mjs';
-import { $, $$, el, button, colorDot, options, message } from './ui.mjs';
+import { $, $$, el, button, colorDot, options, message, syncIndicator } from './ui.mjs';
 
 export class TaxonomyManager {
   constructor({ api, mutate, getState, onInteraction }) {
@@ -56,6 +56,7 @@ export class TaxonomyManager {
       tab.tabIndex = selected ? 0 : -1;
       tab.disabled = this.busy;
     });
+    syncIndicator(document.querySelector('.manager-tabs'));
     $('taxonomy-help').textContent = this.kind === 'categories'
       ? '一个任务归属一个分类；删除分类后，任务保留在未分类中。'
       : '一个任务可以有多个标签；删除标签不会删除任务。';

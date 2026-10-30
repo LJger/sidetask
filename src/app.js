@@ -8,7 +8,7 @@ import { applyTheme, THEME_NAMES, MOTION_NAMES } from './themes.mjs';
 import { SidebarMotion } from './motion.mjs';
 import { TaskEditor } from './editor.mjs';
 import { TaxonomyManager } from './taxonomy.mjs';
-import { $, $$, el, icon, button, colorDot, options, message, toast, hideToast, bindToasts, Popovers, EASE, reducedMotion } from './ui.mjs';
+import { $, $$, el, icon, button, colorDot, options, message, toast, hideToast, bindToasts, Popovers, EASE, reducedMotion, syncIndicator, slideIn } from './ui.mjs';
 
 let api, editor, manager, motion, popovers;
 let state = emptyState();
@@ -152,8 +152,13 @@ function renderWindow(value) {
 function syncComposerDate() {
   if (!$('task-title').value.trim() && !composerDateExplicit && !editor?.dirty) composer.dueDate = selectedDate;
 }
+// Views and periods are laid out left to right; the list glides in from the
+// side of the one being opened.
+const VIEW_ORDER = ['day', 'week', 'month', 'all', 'completed', 'overdue', 'unscheduled'];
+let slideDirection = 0;
 function setView(next) {
   if (editor?.isOpen) { editor.leave(() => { editor.close(); setView(next); }); return; }
+  slideDirection = Math.sign(VIEW_ORDER.indexOf(next) - VIEW_ORDER.indexOf(view));
   view = next;
   if (CALENDAR_VIEWS.includes(view)) {
     anchorDate = selectedDate;
@@ -556,6 +561,8 @@ function renderTasks() {
   $('task-list').replaceChildren(fragment);
   $('task-list').setAttribute('aria-labelledby', CALENDAR_VIEWS.includes(view) ? 'tab-' + view : 'more-views-trigger');
   $('empty-state').hidden = grid || tasks.length > 0 || previews.length > 0;
+  slideIn([$('task-list'), $('empty-state')], slideDirection);
+  slideDirection = 0;
   const filtered = filters.categoryId !== undefined || filters.tagIds.length || filters.search || filters.taskIds;
   const completedOnDay = state.tasks.filter(task => task.completedAt && localDate(new Date(task.completedAt)) === selectedDate).length;
   $('empty-title').textContent = filtered ? '没有匹配的任务' : view === 'completed' ? '还没有完成记录' : !state.tasks.length ? '还没有任务' : view === 'day' ? (completedOnDay ? '当天已完成 ' + completedOnDay + ' 项' : selectedDate === today ? '今天还没有安排' : '当天还没有安排') : view === 'overdue' ? '没有逾期任务' : view === 'unscheduled' ? '没有未安排的任务' : '任务已处理完';
@@ -680,6 +687,7 @@ function render() {
     tab.setAttribute('aria-selected', String(active));
     tab.tabIndex = active ? 0 : -1;
   });
+  syncIndicator(document.querySelector('.view-tabs'));
   options($('category-filter'), state.categories, filters.categoryId === undefined ? 'all' : filters.categoryId ?? 'none', [{ value: 'all', label: '全部分类' }, { value: 'none', label: '未分类' }]);
   $('tag-filter-label').textContent = filters.tagIds.length ? filters.tagIds.length + ' 标签' : '标签';
   $('tag-filter-trigger').dataset.active = String(filters.tagIds.length > 0);
@@ -885,10 +893,10 @@ function bindEvents() {
   $('backlog-overdue').addEventListener('click', () => setView('overdue'));
   $('backlog-unscheduled').addEventListener('click', () => setView('unscheduled'));
   for (const [id, direction] of [['period-prev', -1], ['period-next', 1]]) $(id).addEventListener('click', () => {
-    followToday = false; anchorDate = shiftPeriod(view, anchorDate, direction);
+    followToday = false; anchorDate = shiftPeriod(view, anchorDate, direction); slideDirection = direction;
     selectedDate = periodSelection(view, anchorDate, today); syncComposerDate(); columnLimits.clear(); renderLimit = 100; render();
   });
-  $('period-today').addEventListener('click', () => { followToday = true; selectedDate = anchorDate = today; syncComposerDate(); render(); });
+  $('period-today').addEventListener('click', () => { followToday = true; slideDirection = Math.sign(today.localeCompare(anchorDate)); selectedDate = anchorDate = today; syncComposerDate(); render(); });
   $('period-label').addEventListener('click', () => {
     const input = $('period-date');
     // The native picker keeps the page tidy; browsers without it fall back to

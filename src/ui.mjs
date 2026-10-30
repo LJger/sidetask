@@ -2,6 +2,35 @@ export const $ = id => document.getElementById(id);
 export const $$ = selector => [...document.querySelectorAll(selector)];
 export const EASE = 'cubic-bezier(.22,1,.36,1)';
 export const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+// A tab list draws its selection as one plate that slides between tabs. Size
+// changes, including the list first becoming visible, place the plate without
+// animating; only a change of selection makes it travel.
+let indicatorObserver;
+const observedIndicators = new WeakSet();
+function placeIndicator(list, animate) {
+  const selected = list.querySelector('[aria-selected="true"]');
+  if (!list.offsetWidth) return;
+  if (!animate) list.dataset.indicator = 'static';
+  list.style.setProperty('--indicator-opacity', selected ? '1' : '0');
+  if (selected) {
+    list.style.setProperty('--indicator-x', selected.offsetLeft + 'px');
+    list.style.setProperty('--indicator-width', selected.offsetWidth + 'px');
+  }
+  if (!animate) requestAnimationFrame(() => requestAnimationFrame(() => { list.dataset.indicator = 'ready'; }));
+}
+export function syncIndicator(list) {
+  indicatorObserver ??= new ResizeObserver(entries => entries.forEach(entry => placeIndicator(entry.target, false)));
+  if (!observedIndicators.has(list)) { observedIndicators.add(list); indicatorObserver.observe(list); }
+  placeIndicator(list, list.dataset.indicator === 'ready');
+}
+// Content that replaces content glides in from the side it logically comes from.
+export function slideIn(nodes, direction, distance = 14) {
+  if (!direction || reducedMotion()) return;
+  for (const node of nodes) {
+    if (!node || node.hidden) continue;
+    node.animate([{ opacity: 0, transform: `translateX(${direction * distance}px)` }, { opacity: 1, transform: 'none' }], { duration: 280, easing: EASE });
+  }
+}
 export function el(tag, className = '', text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -103,6 +132,8 @@ export class Popovers {
     const top = below + size.height <= innerHeight - 8 ? below : Math.max(8, rect.top - size.height - 5);
     node.style.left = left + 'px';
     node.style.top = top + 'px';
+    // Grow out of the trigger, whichever side of it the menu ended up on.
+    node.style.transformOrigin = Math.round(rect.left + rect.width / 2 - left) + 'px ' + (top === below ? '0' : '100%');
     this.active = node;
     this.trigger = trigger;
     trigger.setAttribute('aria-expanded', 'true');

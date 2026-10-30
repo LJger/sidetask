@@ -129,7 +129,7 @@ export class TaskEditor {
     $('edit-title').focus({ preventScroll: true });
     if (entering && !reducedMotion()) {
       const wide = document.body.dataset.wide === 'true';
-      $('task-detail').animate([{ opacity: 0, transform: wide ? 'translateX(16px)' : 'translateX(8px)' }, { opacity: 1, transform: 'none' }], { duration: 180, easing: EASE });
+      $('task-detail').animate([{ opacity: 0, transform: wide ? 'translateX(28px)' : 'translateX(18px)' }, { opacity: 1, transform: 'none' }], { duration: 280, easing: EASE });
     }
   }
 
@@ -142,7 +142,9 @@ export class TaskEditor {
       this.closing = false;
       this.closed = null;
       $('task-detail').hidden = true;
+      const returning = $('list-view').hidden;
       $('list-view').hidden = false;
+      if (returning && !reducedMotion()) $('list-view').animate([{ opacity: 0, transform: 'translateX(-12px)' }, { opacity: 1, transform: 'none' }], { duration: 240, easing: EASE });
       this.onInteraction();
       this.onClose(id);
       resolve();
@@ -153,7 +155,7 @@ export class TaskEditor {
     this.closing = true;
     this.onInteraction();
     const wide = document.body.dataset.wide === 'true';
-    const animation = $('task-detail').animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: wide ? 'translateX(16px)' : 'none' }], { duration: wide ? 160 : 110, easing: EASE, fill: 'forwards' });
+    const animation = $('task-detail').animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: wide ? 'translateX(24px)' : 'translateX(12px)' }], { duration: wide ? 180 : 140, easing: EASE, fill: 'forwards' });
     this.exit = animation;
     const pending = this.closed;
     animation.finished.then(() => {

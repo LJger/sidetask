@@ -301,23 +301,30 @@ pub fn set_region(window: &WebviewWindow, bounds: Option<Rect>) -> Result<()> {
     Ok(())
 }
 
-fn frameless_style(index: WINDOW_LONG_PTR_INDEX, style: u32) -> u32 {
-    let frame = if index == GWL_STYLE {
-        WS_CAPTION.0 | WS_THICKFRAME.0
+fn sidebar_style(index: WINDOW_LONG_PTR_INDEX, style: u32) -> u32 {
+    if index == GWL_STYLE {
+        // Keep WS_SYSMENU for Alt+F4, along with visibility and clipping.
+        style & !(WS_CAPTION.0 | WS_THICKFRAME.0)
     } else if index == GWL_EXSTYLE {
-        WS_EX_WINDOWEDGE.0 | WS_EX_CLIENTEDGE.0 | WS_EX_DLGMODALFRAME.0 | WS_EX_STATICEDGE.0
+        let frame =
+            WS_EX_WINDOWEDGE.0 | WS_EX_CLIENTEDGE.0 | WS_EX_DLGMODALFRAME.0 | WS_EX_STATICEDGE.0;
+        // A collapsed sidebar keeps its full-size HWND and clips it to the
+        // handle. Chromium-based programs (Edge, WebView2 and Electron apps)
+        // treat an application window as opaque across its entire rectangle,
+        // so they stop painting whatever lies beneath the invisible part, such
+        // as Edge's favorites, downloads and history flyouts. Tool windows are
+        // exempt because their rectangle may exceed what is visible.
+        (style & !(frame | WS_EX_APPWINDOW.0)) | WS_EX_TOOLWINDOW.0
     } else {
-        0
-    };
-    // Keep WS_SYSMENU for Alt+F4, along with visibility, transparency and Z-order.
-    style & !frame
+        style
+    }
 }
 
-fn clear_native_frame(hwnd: HWND) -> Result<()> {
+fn apply_sidebar_style(hwnd: HWND) -> Result<()> {
     unsafe {
         for index in [GWL_STYLE, GWL_EXSTYLE] {
             let current = GetWindowLongPtrW(hwnd, index) as u32;
-            let next = frameless_style(index, current);
+            let next = sidebar_style(index, current);
             if current == next {
                 continue;
             }
@@ -326,7 +333,7 @@ fn clear_native_frame(hwnd: HWND) -> Result<()> {
             if SetWindowLongPtrW(hwnd, index, next as isize) == 0 && GetLastError() != ERROR_SUCCESS
             {
                 return Err(format!(
-                    "无法禁用系统窗口边框：{}",
+                    "无法设置侧栏窗口样式：{}",
                     windows::core::Error::from_win32()
                 ));
             }
@@ -340,7 +347,7 @@ fn clear_native_frame(hwnd: HWND) -> Result<()> {
             0,
             SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
         )
-        .map_err(|error| format!("无法更新无边框窗口：{error}"))?;
+        .map_err(|error| format!("无法更新侧栏窗口样式：{error}"))?;
     }
     Ok(())
 }
@@ -357,12 +364,13 @@ pub fn install_hook(window: &WebviewWindow, sender: Sender<Op>) -> Result<()> {
         let sender = &*(data as *const Sender<Op>);
         match message {
             WM_STYLECHANGING if lparam.0 != 0 => {
-                // Tao rewrites the caption/edge styles when changing visibility
-                // or topmost state. Filter the proposed styles before Windows
-                // applies them, so no intermediate decorated frame can be drawn.
+                // Tao rewrites the caption/edge and app-window styles when
+                // changing visibility or topmost state. Filter the proposed
+                // styles before Windows applies them, so no intermediate
+                // decorated frame or occluding app window can appear.
                 let styles = &mut *(lparam.0 as *mut STYLESTRUCT);
                 styles.styleNew =
-                    frameless_style(WINDOW_LONG_PTR_INDEX(wparam.0 as i32), styles.styleNew);
+                    sidebar_style(WINDOW_LONG_PTR_INDEX(wparam.0 as i32), styles.styleNew);
             }
             WM_NCCALCSIZE | WM_NCPAINT => {
                 // The fixed-size sidebar uses the entire HWND as its client area,
@@ -415,9 +423,9 @@ pub fn install_hook(window: &WebviewWindow, sender: Sender<Op>) -> Result<()> {
         }
         return Err("无法启用窗口消息处理。".into());
     }
-    // Install the style guard first, then remove the styles already assigned by
+    // Install the style guard first, then replace the styles already assigned by
     // Tao. This runs on the window thread before the initially hidden HWND is shown.
-    clear_native_frame(handle)
+    apply_sidebar_style(handle)
 }
 
 pub fn data_directory() -> Result<PathBuf> {

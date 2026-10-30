@@ -7,9 +7,8 @@
   <meta name="theme-color" content="#285b46">
   <title>侧记 · 任务安排</title>
   <link rel="icon" href="../assets/icon.png">
-  <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="themes.css">
-  <link rel="stylesheet" href="workspace.css">
+  <link rel="stylesheet" href="styles.css">
   <script type="module" src="app.js"></script>
 </head>
 <body data-runtime="tauri" data-expanded="true" data-surface-expanded="true" data-phase="expanded" data-dock="right">
@@ -154,30 +153,37 @@
   <dialog class="app-dialog" id="discard-dialog" aria-labelledby="discard-heading"><div class="dialog-heading"><h2 id="discard-heading">修改还没有保存</h2></div><p class="field-help">保存后再离开，或放弃这次修改。</p><div class="discard-actions"><button class="secondary-button" id="discard-continue">继续编辑</button><button class="danger-button" id="discard-changes">放弃修改</button><button class="primary-button" id="discard-save">保存并继续</button></div></dialog>
 
   <dialog class="app-dialog settings-dialog" id="settings-dialog" aria-labelledby="settings-heading">
-    <div class="dialog-heading"><div><h2 id="settings-heading">设置</h2></div><button class="icon-button" data-close="settings-dialog" aria-label="关闭设置"><svg class="icon"><use href="#i-close"/></svg></button></div>
-    <section class="theme-settings"><h3>外观</h3><div id="theme-presets" class="theme-presets"></div>
-      <div class="setting-row motion-setting"><div><label id="motion-label">展开方式</label><p>侧栏从边缘出现的动态效果</p></div><div id="motion-presets" class="motion-presets" role="group" aria-labelledby="motion-label"></div></div>
-      <div class="setting-row opacity-setting">
-        <div class="opacity-heading"><label for="setting-panel-transparency">面板透明度</label><output id="panel-transparency-value" for="setting-panel-transparency">0%</output></div>
-        <input id="setting-panel-transparency" type="range" min="0" max="80" step="1" value="0" aria-describedby="panel-transparency-help">
-        <p id="panel-transparency-help">0% 为不透明；面板背景、文字和按钮一起变淡</p>
-      </div>
-      <div class="setting-row opacity-setting">
-        <div class="opacity-heading"><label for="setting-handle-transparency">收起图标透明度</label><output id="handle-transparency-value" for="setting-handle-transparency">20%</output></div>
-        <input id="setting-handle-transparency" type="range" min="0" max="80" step="1" value="20" aria-describedby="handle-transparency-help">
-        <p id="handle-transparency-help">0% 为不透明；悬停、键盘聚焦或拖动时恢复清晰</p>
+    <div class="dialog-heading"><h2 id="settings-heading">设置</h2><button class="icon-button" data-close="settings-dialog" aria-label="关闭设置"><svg class="icon"><use href="#i-close"/></svg></button></div>
+    <section class="settings-group" aria-labelledby="appearance-heading"><h3 id="appearance-heading">外观</h3>
+      <div class="settings-card">
+        <div class="setting-block"><div class="setting-caption" id="theme-label">主题</div><div id="theme-presets" class="theme-presets" role="group" aria-labelledby="theme-label"></div></div>
+        <div class="setting-block motion-setting"><div><label class="setting-caption" id="motion-label">展开方式</label><p>侧栏从边缘出现的动态效果</p></div><div id="motion-presets" class="motion-presets" role="group" aria-labelledby="motion-label"></div></div>
+        <div class="setting-block opacity-setting">
+          <div class="opacity-heading"><label for="setting-panel-transparency">面板透明度</label><output id="panel-transparency-value" for="setting-panel-transparency">0%</output></div>
+          <input id="setting-panel-transparency" type="range" min="0" max="80" step="1" value="0" aria-describedby="panel-transparency-help">
+          <p id="panel-transparency-help">0% 为不透明；面板背景、文字和按钮一起变淡</p>
+        </div>
+        <div class="setting-block opacity-setting">
+          <div class="opacity-heading"><label for="setting-handle-transparency">收起图标透明度</label><output id="handle-transparency-value" for="setting-handle-transparency">20%</output></div>
+          <input id="setting-handle-transparency" type="range" min="0" max="80" step="1" value="20" aria-describedby="handle-transparency-help">
+          <p id="handle-transparency-help">0% 为不透明；悬停、键盘聚焦或拖动时恢复清晰</p>
+        </div>
       </div>
     </section>
-    <h3 class="settings-subheading">窗口行为</h3>
-    <div class="settings-section">
-      <div class="setting-row"><div><label for="setting-pin">窗口置顶</label><p>展开时也显示在其他窗口上方</p></div><input class="switch" role="switch" id="setting-pin" type="checkbox"></div>
-      <div class="setting-row"><div><label for="setting-collapse">自动停靠</label><p>切换窗口后立即收起到最近边缘</p></div><input class="switch" role="switch" id="setting-collapse" type="checkbox"></div>
-      <div class="setting-row"><div><label for="setting-startup">开机启动</label><p id="startup-help">登录 Windows 后，在边缘静静等你</p></div><input class="switch" role="switch" id="setting-startup" type="checkbox"></div>
-    </div>
-    <div class="window-settings"><p class="field-help">拖动标题栏可移动窗口；切换到其他窗口后，自动收起到最近的桌面边缘。</p><button id="reset-placement" class="secondary-button">重置窗口位置</button></div>
-    <div class="settings-section data-section"><h3>数据与备份</h3><p>备份可以带到另一台电脑。导入后合并任务、分类与标签，保留本机外观和窗口设置。</p><div class="data-actions"><button class="secondary-button" id="export-data"><svg class="icon"><use href="#i-download"/></svg>导出备份</button><button class="secondary-button" id="import-data"><svg class="icon"><use href="#i-upload"/></svg>导入备份</button></div><button class="text-button data-folder" id="data-folder"><svg class="icon"><use href="#i-folder"/></svg>打开数据文件夹<svg class="icon tiny"><use href="#i-right"/></svg></button></div>
+    <section class="settings-group" aria-labelledby="behavior-heading"><h3 id="behavior-heading">窗口行为</h3>
+      <div class="settings-card">
+        <div class="setting-row"><div><label for="setting-pin">窗口置顶</label><p>展开时也显示在其他窗口上方</p></div><input class="switch" role="switch" id="setting-pin" type="checkbox"></div>
+        <div class="setting-row"><div><label for="setting-collapse">自动停靠</label><p>切换窗口后立即收起到最近边缘</p></div><input class="switch" role="switch" id="setting-collapse" type="checkbox"></div>
+        <div class="setting-row"><div><label for="setting-startup">开机启动</label><p id="startup-help">登录 Windows 后，在边缘静静等你</p></div><input class="switch" role="switch" id="setting-startup" type="checkbox"></div>
+        <div class="setting-row window-settings"><p class="field-help">拖动标题栏可移动窗口；切换到其他窗口后，自动收起到最近的桌面边缘。</p><button id="reset-placement" class="secondary-button">重置窗口位置</button></div>
+      </div>
+    </section>
+    <section class="settings-group data-section" aria-labelledby="data-heading"><h3 id="data-heading">数据与备份</h3>
+      <div class="settings-card"><p>备份可以带到另一台电脑。导入后合并任务、分类与标签，保留本机外观和窗口设置。</p><div class="data-actions"><button class="secondary-button" id="export-data"><svg class="icon"><use href="#i-download"/></svg>导出备份</button><button class="secondary-button" id="import-data"><svg class="icon"><use href="#i-upload"/></svg>导入备份</button></div><button class="text-button data-folder" id="data-folder"><svg class="icon"><use href="#i-folder"/></svg>打开数据文件夹<svg class="icon tiny"><use href="#i-right"/></svg></button></div>
+    </section>
     <p class="form-message settings-message" id="settings-message" role="status">更改会自动保存</p>
-    <p class="settings-note">提醒在程序运行时生效。收起到托盘后仍可提醒；错过的提醒在下次启动时汇总。</p><div class="settings-footer"><span>侧记 SideTask <span id="app-version">1.4.0</span></span><span>本地 · 无需登录</span></div>
+    <p class="settings-note">提醒在程序运行时生效。收起到托盘后仍可提醒；错过的提醒在下次启动时汇总。</p>
+    <div class="settings-footer"><span>侧记 SideTask <span id="app-version">1.4.1</span></span><span>本地 · 无需登录</span></div>
   </dialog>
   <dialog class="app-dialog" id="preview-dialog" aria-labelledby="preview-heading"><div class="dialog-heading"><h2 id="preview-heading">重复计划预览</h2><button class="icon-button" data-close="preview-dialog" aria-label="关闭预览"><svg class="icon"><use href="#i-close"/></svg></button></div><h3 id="preview-title"></h3><p id="preview-date"></p><p class="field-help" id="preview-rule"></p><p class="field-help">这是预计安排。完成当前任务后才会生成下一次，预览不会发送提醒。</p><button id="preview-edit" class="primary-button">编辑当前任务</button></dialog>
   <dialog class="app-dialog day-dialog" id="day-dialog" aria-labelledby="day-heading"><div class="dialog-heading"><h2 id="day-heading">当日任务</h2><button class="icon-button" data-close="day-dialog" aria-label="关闭当日清单"><svg class="icon"><use href="#i-close"/></svg></button></div><div id="day-tasks"></div></dialog>
