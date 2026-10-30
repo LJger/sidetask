@@ -103,13 +103,15 @@ async function connect(args = []) {
   appProcess.stderr.on('data', chunk => { logs += chunk; });
   const deadline = Date.now() + 60000;
   // Attaching while the app page is still about:blank lets EdgeDriver's session
-  // setup abort the pending navigation to the app, so wait for the page target.
+  // setup abort the pending navigation to the app. The target URL changes before
+  // the document commits, so also wait for the application's non-blank title.
   while (true) {
     if (appError) throw appError;
     if (appProcess.exitCode !== null) throw new Error('Application exited before WebView2 was ready: ' + appProcess.exitCode);
     try {
       const response = await fetch(`http://127.0.0.1:${debugPort}/json/list`, { signal: AbortSignal.timeout(2000) });
-      if (response.ok && (await response.json()).some(target => target.type === 'page' && target.url.startsWith('http://tauri.localhost/'))) break;
+      if (response.ok && (await response.json()).some(target => target.type === 'page'
+        && target.url.startsWith('http://tauri.localhost/') && target.title && target.title !== 'about:blank')) break;
     } catch {}
     if (Date.now() >= deadline) throw new Error('WebView2 debugging endpoint did not become ready');
     await delay(100);
