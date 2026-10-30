@@ -18,4 +18,6 @@
 
 ## 验证记录
 
-发布构建与验证结果见 [1.4.1 验证记录](https://github.com/LJger/sidetask/blob/main/docs/verification-1.4.1.md)。
+44 个 JavaScript 文件语法检查、72 项 JavaScript 测试、21 项 Rust 测试、42 项浏览器界面测试，以及 Rust 格式和 Windows Clippy 检查通过。安装版与便携版均由 Windows 原生构建生成，版本号和 SHA-256 已核验。桌面复验通过原生启动、保存、24 组收起展开、焦点与草稿保护等检查。
+
+桌面自动化仍在系统文件对话框的文件名控件定位步骤失败，与此前版本记录一致；因此工作流并非全绿。Edge 收藏夹等第三方程序交互、多显示器与 DPI、Windows 10 和安装升级流程仍待实机复验。详细结果见 [1.4.1 验证记录](https://github.com/LJger/sidetask/blob/main/docs/verification-1.4.1.md)。
